@@ -8,7 +8,9 @@ import { getPlayerId } from './identity.ts';
 // In split deploy (Vercel client + Render backend) the backend lives on another
 // origin — point at it via VITE_SERVER_URL (baked in at build time). Falls back to
 // same-origin for local single-service dev (Vite proxies /socket.io).
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || '/';
+// Trim whitespace + trailing slashes so a stray space in the env var can't break the
+// WebSocket hostname (e.g. "https://api ...com " → encoded %20 → ERR_NAME_NOT_RESOLVED).
+const SERVER_URL = (import.meta.env.VITE_SERVER_URL || '/').trim().replace(/\/+$/, '');
 
 interface SocketCtx {
   socket: Socket;
