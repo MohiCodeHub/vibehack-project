@@ -1,0 +1,135 @@
+/**
+ * Where To? design tokens — sourced from Figma Make prototype (UI for Group Decision Game).
+ * Namespaced with --ds-* so existing screen styles are unaffected until migration.
+ */
+
+:root {
+  /* ---- Color: surfaces ---- */
+  --ds-color-background: #4c1d95;
+  --ds-color-background-muted: #3b1578;
+  --ds-color-foreground: #ffffff;
+  --ds-color-card: #5b21b6;
+  --ds-color-card-foreground: #ffffff;
+  --ds-color-popover: #5b21b6;
+  --ds-color-popover-foreground: #ffffff;
+
+  /* ---- Color: brand & actions ---- */
+  --ds-color-primary: #8b5cf6;
+  --ds-color-primary-foreground: #ffffff;
+  --ds-color-secondary: #a78bfa;
+  --ds-color-secondary-foreground: #ffffff;
+  --ds-color-accent: #ddd6fe;
+  --ds-color-accent-foreground: #4c1d95;
+  --ds-color-muted: #6d28d9;
+  --ds-color-muted-foreground: #c4b5fd;
+
+  /* ---- Color: semantic ---- */
+  --ds-color-destructive: #ef4444;
+  --ds-color-destructive-foreground: #ffffff;
+  --ds-color-success: #4ade80;
+  --ds-color-success-foreground: #0a0418;
+  --ds-color-warning: #fbbf24;
+  --ds-color-warning-foreground: #0a0418;
+  --ds-color-info: #60a5fa;
+  --ds-color-info-foreground: #ffffff;
+
+  /* ---- Color: UI chrome ---- */
+  --ds-color-border: rgba(255, 255, 255, 0.2);
+  --ds-color-border-strong: #000000;
+  --ds-color-input: transparent;
+  --ds-color-input-background: rgba(255, 255, 255, 0.1);
+  --ds-color-input-fill: #ffffff;
+  --ds-color-input-text: #0a0418;
+  --ds-color-ring: #a78bfa;
+  --ds-color-overlay: rgba(0, 0, 0, 0.35);
+  --ds-color-disabled: #6b7280;
+  --ds-color-disabled-foreground: rgba(255, 255, 255, 0.5);
+
+  /* ---- Color: player palette (lobby / leaderboard) ---- */
+  --ds-color-player-1: #fbbf24;
+  --ds-color-player-2: #f87171;
+  --ds-color-player-3: #34d399;
+  --ds-color-player-4: #60a5fa;
+  --ds-color-player-5: #f472b6;
+  --ds-color-player-6: #a78bfa;
+
+  /* ---- Typography: families ---- */
+  --ds-font-header: 'Bangers', cursive;
+  --ds-font-sketch: 'Gochi Hand', cursive;
+  --ds-font-body: 'Comic Neue', system-ui, -apple-system, sans-serif;
+
+  /* ---- Typography: sizes ---- */
+  --ds-text-xs: 0.75rem;
+  --ds-text-sm: 0.875rem;
+  --ds-text-base: 1rem;
+  --ds-text-lg: 1.125rem;
+  --ds-text-xl: 1.25rem;
+  --ds-text-2xl: 1.5rem;
+  --ds-text-3xl: 1.875rem;
+  --ds-text-4xl: 2.25rem;
+  --ds-text-5xl: 3rem;
+  --ds-text-6xl: 3.75rem;
+  --ds-text-7xl: 4.5rem;
+
+  /* ---- Typography: line heights ---- */
+  --ds-leading-none: 1;
+  --ds-leading-tight: 1.1;
+  --ds-leading-snug: 1.2;
+  --ds-leading-normal: 1.5;
+  --ds-leading-relaxed: 1.625;
+
+  /* ---- Typography: weights ---- */
+  --ds-font-weight-normal: 400;
+  --ds-font-weight-medium: 500;
+  --ds-font-weight-bold: 700;
+
+  /* ---- Typography: letter spacing ---- */
+  --ds-tracking-tight: 0.025em;
+  --ds-tracking-normal: 0.05em;
+  --ds-tracking-wide: 0.1em;
+
+  /* ---- Spacing scale (4px base) ---- */
+  --ds-space-0: 0;
+  --ds-space-1: 0.25rem;
+  --ds-space-2: 0.5rem;
+  --ds-space-3: 0.75rem;
+  --ds-space-4: 1rem;
+  --ds-space-5: 1.25rem;
+  --ds-space-6: 1.5rem;
+  --ds-space-8: 2rem;
+  --ds-space-10: 2.5rem;
+  --ds-space-12: 3rem;
+  --ds-space-16: 4rem;
+  --ds-space-20: 5rem;
+
+  /* ---- Radius ---- */
+  --ds-radius-sm: 0.375rem;
+  --ds-radius-md: 0.625rem;
+  --ds-radius-lg: 1rem;
+  --ds-radius-xl: 1.125rem;
+  --ds-radius-2xl: 1.5rem;
+  --ds-radius-3xl: 1.875rem;
+  --ds-radius-full: 9999px;
+
+  /* ---- Shadows (chunky arcade) ---- */
+  --ds-shadow-chunky-sm: 2px 2px 0 0 var(--ds-color-border-strong);
+  --ds-shadow-chunky: 4px 4px 0 0 var(--ds-color-border-strong);
+  --ds-shadow-chunky-lg: 8px 8px 0 0 var(--ds-color-border-strong);
+  --ds-shadow-chunky-xl: 12px 12px 0 0 var(--ds-color-border-strong);
+  --ds-shadow-drop: 4px 4px 0 0 var(--ds-color-border-strong);
+
+  /* ---- Borders ---- */
+  --ds-border-width: 4px;
+  --ds-border-width-sm: 2px;
+
+  /* ---- Motion ---- */
+  --ds-duration-fast: 150ms;
+  --ds-duration-normal: 220ms;
+  --ds-duration-slow: 320ms;
+  --ds-ease-out: cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  --ds-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ---- Layout ---- */
+  --ds-shell-max-width: 28rem;
+  --ds-tap-min-height: 3rem;
+}

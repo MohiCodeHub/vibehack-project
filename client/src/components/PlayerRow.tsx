@@ -1,13 +1,42 @@
 import type { PlayerView } from '@shared/types.ts';
+import type { ReactNode } from 'react';
+import { ShieldCheck } from 'lucide-react';
+import { motion as Motion } from 'motion/react';
+import { Badge } from './ui/Badge.tsx';
+import { playerColor } from './ui/utils.ts';
 
-const COLORS = ['#ff5d8f', '#ffd23f', '#3bceac', '#5b8cff', '#c77dff', '#ff8c42'];
-
-function colorFor(id: string): string {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return COLORS[h % COLORS.length];
+export function PlayerTile({
+  p,
+  youId,
+  index,
+}: {
+  p: PlayerView;
+  youId?: string;
+  index: number;
+}) {
+  return (
+    <Motion.li
+      initial={{ scale: 0 }}
+      animate={{ scale: 1 }}
+      className={`player-tile${p.connected ? '' : ' player-tile--offline'}`}
+      style={{ borderLeftColor: playerColor(index) }}
+    >
+      <span className="player-tile__name">
+        {p.name}
+        {p.id === youId && ' (you)'}
+      </span>
+      {p.isHost && <ShieldCheck size={16} aria-label="Host" />}
+      {p.isBot && <Badge variant="bot">bot</Badge>}
+      {!p.connected && <Badge variant="outline">offline</Badge>}
+    </Motion.li>
+  );
 }
 
+export function PlayerTileGhost() {
+  return <li className="player-tile player-tile--ghost">Waiting…</li>;
+}
+
+/** @deprecated Use PlayerTile in grid layout — kept for WaitingFor list */
 export function PlayerRow({
   p,
   youId,
@@ -15,23 +44,21 @@ export function PlayerRow({
 }: {
   p: PlayerView;
   youId?: string;
-  status?: React.ReactNode;
+  status?: ReactNode;
 }) {
+  let h = 0;
+  for (let i = 0; i < p.id.length; i++) h = (h * 31 + p.id.charCodeAt(i)) >>> 0;
+
   return (
-    <li className={`player-row ${p.connected ? '' : 'disconnected'}`}>
-      <span className="avatar" style={{ background: colorFor(p.id) }}>
-        {p.name.slice(0, 1).toUpperCase()}
-      </span>
-      <span className="player-name">
+    <li className={`player-tile${p.connected ? '' : ' player-tile--offline'}`} style={{ borderLeftColor: playerColor(h % 6) }}>
+      <span className="player-tile__name">
         {p.name}
-        {p.id === youId && <span className="you-tag"> you</span>}
-        {p.isHost && <span className="host-tag"> host</span>}
-        {p.isBot && <span className="bot-tag"> 🤖 bot</span>}
+        {p.id === youId && ' (you)'}
+        {p.isHost && ' 👑'}
+        {p.isBot && ' 🤖'}
       </span>
-      <span className="player-status">
-        {!p.connected && <span className="status-off">offline</span>}
-        {status}
-      </span>
+      {!p.connected && <span className="hint">offline</span>}
+      {status}
     </li>
   );
 }

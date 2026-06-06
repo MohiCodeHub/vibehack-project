@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
+import { Search } from 'lucide-react';
 import type { Restaurant, SwipeCard, SwipeChoice } from '@shared/types.ts';
-import { useGame, useMe } from '../lib/socket.tsx';
+import { useGame } from '../lib/socket.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { getLocation, type LatLng } from '../lib/geo.ts';
 import { SwipeDeck } from '../components/SwipeDeck.tsx';
 import { RestaurantCard } from '../components/RestaurantCard.tsx';
 import { WaitingFor } from '../components/WaitingFor.tsx';
+import { Screen } from '../components/layout/Screen.tsx';
+import { Button, FormField, Input, SegmentedControl } from '../components/ui';
 import { Countdown } from '../components/Countdown.tsx';
 import { HostSkip } from '../components/HostSkip.tsx';
 
@@ -13,7 +16,6 @@ type Path = 'choose' | 'manual' | 'swipe' | 'pick';
 
 export function Selecting() {
   const { room, emit, priv } = useGame();
-  const me = useMe();
   const { show } = useToast();
 
   const [path, setPath] = useState<Path>('choose');
@@ -23,7 +25,6 @@ export function Selecting() {
   const [candidates, setCandidates] = useState<Restaurant[]>([]);
   const [cards, setCards] = useState<SwipeCard[]>([]);
 
-  // Grab location once (non-blocking; falls back to default city server-side).
   useEffect(() => {
     getLocation().then(setLoc);
   }, []);
@@ -64,80 +65,99 @@ export function Selecting() {
     await lock(ack.data.restaurant);
   }
 
+  const segmentValue = path === 'manual' ? 'search' : path === 'swipe' || path === 'pick' ? 'help' : null;
+
   if (locked) {
     const others = room?.players.filter((p) => p.connected) ?? [];
     return (
-      <div className="screen selecting">
+      <Screen center className="selecting">
         <Countdown />
-        <h2 className="phase-title">Locked in! 🔒</h2>
-        <RestaurantCard r={priv!.restaurant!} championed />
         <WaitingFor
-          label="Waiting for everyone to pick…"
+          label="LOCKED IN!"
           done={others.filter((p) => p.hasRestaurant).length}
           total={others.length}
           players={others}
           isDone={(p) => p.hasRestaurant}
         />
+        <RestaurantCard r={priv!.restaurant!} championed />
         <HostSkip label="Skip to questions ⏭" />
-      </div>
+      </Screen>
     );
   }
 
   return (
-    <div className="screen selecting">
+    <Screen className="selecting">
       <Countdown />
-      <h2 className="phase-title">Champion a restaurant</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 'var(--ds-space-4)' }}>
+        <h2 className="phase-title" style={{ textAlign: 'left', margin: 0 }}>
+          PICK YOUR PICK
+        </h2>
+        {path !== 'choose' && (
+          <SegmentedControl
+            aria-label="Selection mode"
+            value={segmentValue ?? 'search'}
+            onChange={(v) => {
+              if (v === 'search') setPath('manual');
+              else startSwipe();
+            }}
+            options={[
+              { value: 'search', label: 'SEARCH' },
+              { value: 'help', label: 'HELP ME' },
+            ]}
+          />
+        )}
+      </div>
 
       {path === 'choose' && (
-        <div className="card-stack">
-          <button className="btn btn-primary big" disabled={busy} onClick={() => setPath('manual')}>
+        <div className="screen__actions">
+          <Button variant="primary" size="lg" disabled={busy} onClick={() => setPath('manual')}>
             🍴 I have a pick
-          </button>
-          <button className="btn btn-secondary big" disabled={busy} onClick={startSwipe}>
+          </Button>
+          <Button variant="secondary" size="lg" disabled={busy} onClick={startSwipe}>
             🤔 Help me decide
-          </button>
+          </Button>
           <p className="hint">{loc ? 'Using your location' : 'Using default city'}</p>
         </div>
       )}
 
       {path === 'manual' && (
-        <div className="card-stack">
-          <label className="field">
-            <span>Restaurant name</span>
-            <input
-              className="input"
+        <div className="screen__actions">
+          <FormField label="Restaurant name">
+            <Input
+              variant="search"
+              icon={<Search />}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="e.g. Nonna’s Trattoria"
+              placeholder="Search restaurants…"
               autoFocus
             />
-          </label>
-          <button className="btn btn-primary big" disabled={busy} onClick={searchManual}>
+          </FormField>
+          <Button variant="success" size="lg" disabled={busy} onClick={searchManual}>
             {busy ? 'Finding…' : 'Lock it in'}
-          </button>
-          <button className="btn btn-ghost" disabled={busy} onClick={() => setPath('choose')}>
+          </Button>
+          <Button variant="ghost" disabled={busy} onClick={() => setPath('choose')}>
             Back
-          </button>
+          </Button>
         </div>
       )}
 
       {path === 'swipe' && <SwipeDeck cards={cards} onDone={onSwipeDone} />}
 
       {path === 'pick' && (
-        <div className="card-stack">
-          <p className="hint">Your matches — tap one to champion it:</p>
+        <div className="screen__actions">
+          <p className="phase-sub">Based on your vibes — tap one to champion:</p>
           {candidates.map((r) => (
-            <button key={r.id} className="reveal-tap" disabled={busy} onClick={() => lock(r)}>
-              <RestaurantCard r={r} />
+            <button key={r.id} type="button" className="resto-pick-btn" disabled={busy} onClick={() => lock(r)}>
+              <RestaurantCard r={r} highlight compact />
             </button>
           ))}
-          <button className="btn btn-ghost" disabled={busy} onClick={() => setPath('choose')}>
+          <Button variant="ghost" disabled={busy} onClick={() => setPath('choose')}>
             Start over
-          </button>
+          </Button>
         </div>
       )}
 
       <HostSkip label="Skip to questions ⏭" />
-    </div>
+    </Screen>
   );
 }

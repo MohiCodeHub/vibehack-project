@@ -1,26 +1,29 @@
 import { useEffect, useState } from 'react';
+import { Play, Users } from 'lucide-react';
+import { motion as Motion } from 'motion/react';
 import { useGame } from '../lib/socket.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { getStoredName, setStoredName, getPlayerId, getLastRoom, setLastRoom } from '../lib/identity.ts';
+import { Screen } from '../components/layout/Screen.tsx';
+import { Logo } from '../components/layout/Logo.tsx';
+import { Button, Card, FormField, Input } from '../components/ui';
 
-type Mode = 'home' | 'create' | 'join';
+type Mode = 'initial' | 'create' | 'join';
 
 export function Home() {
   const { emit, connected } = useGame();
   const { show } = useToast();
-  const [mode, setMode] = useState<Mode>('home');
+  const [mode, setMode] = useState<Mode>('initial');
   const [name, setName] = useState(getStoredName());
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
-
-  // Offer to rejoin a previous room on load.
   const [lastRoom] = useState(getLastRoom());
-
-  // Free-tier backends sleep when idle; the first connect can take ~30-60s to wake.
   const [slowWake, setSlowWake] = useState(false);
+
   useEffect(() => {
     document.title = 'Where To?';
   }, []);
+
   useEffect(() => {
     if (connected) return setSlowWake(false);
     const t = window.setTimeout(() => setSlowWake(true), 4000);
@@ -59,72 +62,77 @@ export function Home() {
   }
 
   return (
-    <div className="screen home">
-      <header className="hero">
-        <h1 className="logo">
-          Where<span className="logo-to">To?</span>
-        </h1>
-        <p className="tagline">Let the group decide. The game picks the place.</p>
-      </header>
+    <Screen center className="home">
+      <Logo muted={mode !== 'initial'} animate={mode === 'initial'} />
 
-      <div className="card-stack">
-        <label className="field">
-          <span>Your name</span>
-          <input
-            className="input"
-            value={name}
-            maxLength={20}
-            placeholder="Tap to type…"
-            onChange={(e) => setName(e.target.value)}
-            autoCapitalize="words"
-          />
-        </label>
+      {mode === 'initial' && (
+        <div className="screen__actions">
+          <Button variant="secondary" size="lg" disabled={busy} onClick={() => setMode('create')}>
+            <Play fill="currentColor" size={24} /> CREATE GAME
+          </Button>
+          <Button variant="accent" size="lg" disabled={busy} onClick={() => setMode('join')}>
+            <Users size={24} /> JOIN GAME
+          </Button>
+          {lastRoom && (
+            <Button variant="ghost" disabled={busy || !connected} onClick={() => join(lastRoom)}>
+              Rejoin {lastRoom}
+            </Button>
+          )}
+        </div>
+      )}
 
-        {mode === 'home' && (
-          <>
-            <button className="btn btn-primary big" disabled={busy || !connected} onClick={create}>
-              Create Room
-            </button>
-            <button className="btn btn-secondary big" disabled={busy} onClick={() => setMode('join')}>
-              Join Room
-            </button>
-            {lastRoom && (
-              <button className="btn btn-ghost" disabled={busy} onClick={() => join(lastRoom)}>
-                Rejoin {lastRoom}
-              </button>
-            )}
-          </>
-        )}
-
-        {mode === 'join' && (
-          <>
-            <label className="field">
-              <span>Room code</span>
-              <input
-                className="input code-input"
-                value={code}
-                maxLength={4}
-                placeholder="ABCD"
-                inputMode="text"
-                autoCapitalize="characters"
-                onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))}
+      {(mode === 'create' || mode === 'join') && (
+        <Motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
+          <Card variant="default" padding="lg">
+            <FormField label="Your Name" htmlFor="home-name" required>
+              <Input
+                id="home-name"
+                value={name}
+                maxLength={20}
+                placeholder="e.g. PizzaLover69"
+                onChange={(e) => setName(e.target.value)}
+                autoCapitalize="words"
+                autoFocus
               />
-            </label>
-            <button className="btn btn-primary big" disabled={busy || !connected} onClick={() => join()}>
-              Join
-            </button>
-            <button className="btn btn-ghost" disabled={busy} onClick={() => setMode('home')}>
-              Back
-            </button>
-          </>
-        )}
-      </div>
+            </FormField>
+
+            {mode === 'join' && (
+              <FormField label="Room Code" htmlFor="home-code" required>
+                <Input
+                  id="home-code"
+                  variant="code"
+                  value={code}
+                  maxLength={4}
+                  placeholder="ABCD"
+                  inputMode="text"
+                  autoCapitalize="characters"
+                  onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))}
+                />
+              </FormField>
+            )}
+
+            <div className="screen__actions" style={{ marginTop: 'var(--ds-space-4)' }}>
+              <Button
+                variant="primary"
+                size="lg"
+                disabled={busy || !connected}
+                onClick={mode === 'create' ? create : () => join()}
+              >
+                {mode === 'create' ? "LET'S GO!" : 'JOIN IN!'}
+              </Button>
+              <Button variant="ghost" disabled={busy} onClick={() => setMode('initial')}>
+                Back
+              </Button>
+            </div>
+          </Card>
+        </Motion.div>
+      )}
 
       {!connected && (
-        <p className="hint pulse">
+        <p className="hint hint--pulse">
           {slowWake ? 'Waking the server up — free hosting can take ~30s on first load…' : 'Connecting to server…'}
         </p>
       )}
-    </div>
+    </Screen>
   );
 }

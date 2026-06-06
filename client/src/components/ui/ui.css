@@ -1,0 +1,431 @@
+@import '../../design/index.css';
+
+/* ==========================================================================
+   Where To? UI primitives — Figma Make design system
+   Scoped to .ui-* classes; does not override legacy screen styles.
+   ========================================================================== */
+
+/* ---- Typography utilities ---- */
+.ui-font-header {
+  font-family: var(--ds-font-header);
+  letter-spacing: var(--ds-tracking-normal);
+}
+
+.ui-font-sketch {
+  font-family: var(--ds-font-sketch);
+}
+
+.ui-font-body {
+  font-family: var(--ds-font-body);
+}
+
+/* ---- Chunky border utilities ---- */
+.ui-chunky {
+  border: var(--ds-border-width) solid var(--ds-color-border-strong);
+  box-shadow: var(--ds-shadow-chunky);
+}
+
+.ui-chunky-sm {
+  border: var(--ds-border-width-sm) solid var(--ds-color-border-strong);
+  box-shadow: var(--ds-shadow-chunky-sm);
+}
+
+/* ---- Button ---- */
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-3);
+  width: 100%;
+  min-height: var(--ds-tap-min-height);
+  padding: var(--ds-space-4) var(--ds-space-6);
+  border-radius: var(--ds-radius-xl);
+  font-family: var(--ds-font-header);
+  font-size: var(--ds-text-2xl);
+  letter-spacing: var(--ds-tracking-tight);
+  line-height: var(--ds-leading-none);
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    transform var(--ds-duration-fast) var(--ds-ease-in-out),
+    box-shadow var(--ds-duration-fast) var(--ds-ease-in-out),
+    opacity var(--ds-duration-fast) var(--ds-ease-in-out);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ui-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.ui-btn:disabled,
+.ui-btn[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+.ui-btn--block {
+  display: flex;
+  width: 100%;
+}
+
+.ui-btn--sm {
+  min-height: 2.25rem;
+  padding: var(--ds-space-2) var(--ds-space-4);
+  font-size: var(--ds-text-base);
+  border-radius: var(--ds-radius-lg);
+}
+
+.ui-btn--lg {
+  min-height: 3.5rem;
+  padding: var(--ds-space-4) var(--ds-space-8);
+  font-size: var(--ds-text-3xl);
+}
+
+.ui-btn--icon {
+  width: auto;
+  min-width: var(--ds-tap-min-height);
+  padding: var(--ds-space-3);
+}
+
+/* Button variants */
+.ui-btn--primary {
+  background: var(--ds-color-warning);
+  color: var(--ds-color-warning-foreground);
+  border: var(--ds-border-width) solid var(--ds-color-border-strong);
+  box-shadow: var(--ds-shadow-chunky);
+}
+
+.ui-btn--secondary {
+  background: var(--ds-color-secondary);
+  color: var(--ds-color-secondary-foreground);
+  border: var(--ds-border-width) solid var(--ds-color-border-strong);
+  box-shadow: var(--ds-shadow-chunky);
+}
+
+.ui-btn--accent {
+  background: var(--ds-color-primary);
+  color: var(--ds-color-primary-foreground);
+  border: var(--ds-border-width) solid var(--ds-color-border-strong);
+  box-shadow: var(--ds-shadow-chunky);
+}
+
+.ui-btn--success {
+  background: var(--ds-color-success);
+  color: var(--ds-color-success-foreground);
+  border: var(--ds-border-width) solid var(--ds-color-border-strong);
+  box-shadow: var(--ds-shadow-chunky);
+}
+
+.ui-btn--destructive {
+  background: var(--ds-color-destructive);
+  color: var(--ds-color-destructive-foreground);
+  border: var(--ds-border-width) solid var(--ds-color-border-strong);
+  box-shadow: var(--ds-shadow-chunky);
+}
+
+.ui-btn--ghost {
+  background: transparent;
+  color: var(--ds-color-secondary-foreground);
+  border: none;
+  box-shadow: none;
+  font-family: var(--ds-font-sketch);
+  font-size: var(--ds-text-lg);
+  text-decoration: underline;
+  min-height: auto;
+  padding: var(--ds-space-2);
+}
+
+.ui-btn--ghost:active:not(:disabled) {
+  transform: none;
+  opacity: 0.8;
+}
+
+.ui-btn--outline {
+  background: transparent;
+  color: var(--ds-color-foreground);
+  border: var(--ds-border-width-sm) dashed rgba(255, 255, 255, 0.5);
+  box-shadow: none;
+}
+
+.ui-btn--disabled {
+  background: var(--ds-color-disabled);
+  color: var(--ds-color-disabled-foreground);
+  border: var(--ds-border-width) solid var(--ds-color-border-strong);
+  box-shadow: var(--ds-shadow-chunky);
+}
+
+/* ---- Card ---- */
+.ui-card {
+  border-radius: var(--ds-radius-2xl);
+  color: var(--ds-color-card-foreground);
+}
+
+.ui-card--default {
+  background: var(--ds-color-card);
+  border: var(--ds-border-width) solid var(--ds-color-border-strong);
+  box-shadow: var(--ds-shadow-chunky);
+}
+
+.ui-card--elevated {
+  background: var(--ds-color-input-fill);
+  color: var(--ds-color-input-text);
+  border: var(--ds-border-width) solid var(--ds-color-border-strong);
+  box-shadow: var(--ds-shadow-chunky);
+}
+
+.ui-card--highlight {
+  background: var(--ds-color-warning);
+  color: var(--ds-color-warning-foreground);
+  border: var(--ds-border-width) solid var(--ds-color-border-strong);
+  box-shadow: var(--ds-shadow-chunky);
+}
+
+.ui-card--ghost {
+  background: transparent;
+  border: var(--ds-border-width-sm) dashed rgba(255, 255, 255, 0.2);
+  box-shadow: none;
+  color: var(--ds-color-muted-foreground);
+}
+
+.ui-card--muted {
+  background: color-mix(in srgb, var(--ds-color-card) 50%, transparent);
+  border: var(--ds-border-width) solid var(--ds-color-border-strong);
+  box-shadow: var(--ds-shadow-chunky);
+}
+
+.ui-card__header {
+  padding: var(--ds-space-6);
+  padding-bottom: var(--ds-space-4);
+}
+
+.ui-card__body {
+  padding: var(--ds-space-6);
+}
+
+.ui-card__footer {
+  padding: var(--ds-space-6);
+  padding-top: var(--ds-space-4);
+}
+
+.ui-card--pad-none {
+  padding: 0;
+}
+
+.ui-card--pad-sm {
+  padding: var(--ds-space-4);
+}
+
+.ui-card--pad-md {
+  padding: var(--ds-space-6);
+}
+
+.ui-card--pad-lg {
+  padding: var(--ds-space-8);
+}
+
+/* ---- Form: label ---- */
+.ui-label {
+  display: block;
+  font-family: var(--ds-font-sketch);
+  font-size: var(--ds-text-lg);
+  color: var(--ds-color-foreground);
+  margin-bottom: var(--ds-space-2);
+}
+
+.ui-label--required::after {
+  content: ' *';
+  color: var(--ds-color-warning);
+}
+
+/* ---- Form: input ---- */
+.ui-input,
+.ui-textarea {
+  display: block;
+  width: 100%;
+  font-family: var(--ds-font-body);
+  font-size: var(--ds-text-base);
+  color: var(--ds-color-input-text);
+  background: var(--ds-color-input-fill);
+  border: var(--ds-border-width-sm) solid var(--ds-color-border-strong);
+  box-shadow: var(--ds-shadow-chunky-sm);
+  border-radius: var(--ds-radius-xl);
+  transition:
+    box-shadow var(--ds-duration-fast) var(--ds-ease-in-out),
+    outline var(--ds-duration-fast) var(--ds-ease-in-out);
+}
+
+.ui-input {
+  padding: var(--ds-space-4);
+  min-height: var(--ds-tap-min-height);
+}
+
+.ui-textarea {
+  padding: var(--ds-space-6);
+  min-height: 7.5rem;
+  resize: vertical;
+  line-height: var(--ds-leading-normal);
+}
+
+.ui-input::placeholder,
+.ui-textarea::placeholder {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.ui-input:focus,
+.ui-textarea:focus {
+  outline: 3px solid var(--ds-color-ring);
+  outline-offset: 2px;
+}
+
+.ui-input:disabled,
+.ui-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Input variants */
+.ui-input--code {
+  font-family: var(--ds-font-header);
+  font-size: var(--ds-text-3xl);
+  letter-spacing: var(--ds-tracking-wide);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.ui-input--search {
+  padding-left: var(--ds-space-12);
+}
+
+.ui-textarea--sketch {
+  font-family: var(--ds-font-sketch);
+  font-size: var(--ds-text-xl);
+  color: var(--ds-color-foreground);
+  background: var(--ds-color-card);
+}
+
+.ui-input-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.ui-input-wrap__icon {
+  position: absolute;
+  left: var(--ds-space-4);
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+.ui-input-wrap__icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* ---- Form field ---- */
+.ui-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+  width: 100%;
+}
+
+.ui-field__hint {
+  font-family: var(--ds-font-sketch);
+  font-size: var(--ds-text-sm);
+  color: var(--ds-color-muted-foreground);
+  margin: 0;
+}
+
+.ui-field__error {
+  font-family: var(--ds-font-sketch);
+  font-size: var(--ds-text-sm);
+  color: var(--ds-color-destructive);
+  margin: 0;
+}
+
+/* ---- Badge ---- */
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  padding: var(--ds-space-1) var(--ds-space-3);
+  border-radius: var(--ds-radius-full);
+  font-family: var(--ds-font-header);
+  font-size: var(--ds-text-xs);
+  letter-spacing: var(--ds-tracking-normal);
+  text-transform: uppercase;
+  line-height: var(--ds-leading-none);
+  border: var(--ds-border-width-sm) solid var(--ds-color-border-strong);
+}
+
+.ui-badge--default {
+  background: var(--ds-color-primary);
+  color: var(--ds-color-primary-foreground);
+}
+
+.ui-badge--secondary {
+  background: var(--ds-color-secondary);
+  color: var(--ds-color-secondary-foreground);
+}
+
+.ui-badge--warning {
+  background: var(--ds-color-warning);
+  color: var(--ds-color-warning-foreground);
+}
+
+.ui-badge--success {
+  background: var(--ds-color-success);
+  color: var(--ds-color-success-foreground);
+}
+
+.ui-badge--outline {
+  background: transparent;
+  color: var(--ds-color-foreground);
+  border-color: var(--ds-color-border);
+}
+
+.ui-badge--host {
+  background: var(--ds-color-warning);
+  color: var(--ds-color-warning-foreground);
+}
+
+.ui-badge--bot {
+  background: var(--ds-color-muted);
+  color: var(--ds-color-muted-foreground);
+}
+
+/* ---- Segmented control (SEARCH / HELP ME toggle from Figma) ---- */
+.ui-segmented {
+  display: inline-flex;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--ds-radius-lg);
+  padding: var(--ds-space-1);
+  gap: var(--ds-space-1);
+}
+
+.ui-segmented__item {
+  font-family: var(--ds-font-header);
+  font-size: var(--ds-text-sm);
+  letter-spacing: var(--ds-tracking-tight);
+  padding: var(--ds-space-1) var(--ds-space-3);
+  border: none;
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: var(--ds-color-foreground);
+  cursor: pointer;
+  transition: background var(--ds-duration-fast) var(--ds-ease-in-out);
+}
+
+.ui-segmented__item--active {
+  background: var(--ds-color-secondary);
+}
+
+.ui-segmented__item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
