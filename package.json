@@ -1,0 +1,39 @@
+{
+  "name": "where-to",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Where To? — a real-time multiplayer party game that helps a group decide where to go out.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n SERVER,CLIENT -c green,cyan \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "cross-env NODE_ENV=development tsx watch server/src/index.ts",
+    "dev:client": "vite --config client/vite.config.ts --host",
+    "build": "npm run build:client",
+    "build:client": "vite build --config client/vite.config.ts",
+    "start": "cross-env NODE_ENV=production tsx server/src/index.ts",
+    "typecheck": "tsc -p server/tsconfig.json --noEmit && tsc -p client/tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5",
+    "dotenv": "^16.4.5",
+    "tsx": "^4.16.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.10",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "socket.io-client": "^4.7.5",
+    "typescript": "^5.5.3",
+    "vite": "^5.3.3"
+  }
+}
