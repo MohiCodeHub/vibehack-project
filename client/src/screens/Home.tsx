@@ -16,9 +16,16 @@ export function Home() {
   // Offer to rejoin a previous room on load.
   const [lastRoom] = useState(getLastRoom());
 
+  // Free-tier backends sleep when idle; the first connect can take ~30-60s to wake.
+  const [slowWake, setSlowWake] = useState(false);
   useEffect(() => {
     document.title = 'Where To?';
   }, []);
+  useEffect(() => {
+    if (connected) return setSlowWake(false);
+    const t = window.setTimeout(() => setSlowWake(true), 4000);
+    return () => window.clearTimeout(t);
+  }, [connected]);
 
   async function create() {
     if (!name.trim()) return show('Enter a name first');
@@ -113,7 +120,11 @@ export function Home() {
         )}
       </div>
 
-      {!connected && <p className="hint">Connecting to server…</p>}
+      {!connected && (
+        <p className="hint pulse">
+          {slowWake ? 'Waking the server up — free hosting can take ~30s on first load…' : 'Connecting to server…'}
+        </p>
+      )}
     </div>
   );
 }

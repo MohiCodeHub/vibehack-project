@@ -103,34 +103,52 @@ Each service mocks **independently** — e.g. real AI questions + mocked places 
 
 ---
 
-## Deploy (single service: API + built client)
+## Deploy — Vercel (client) + Render (backend)
 
-The server serves the built client from `client/dist` in production, so one web service does
-everything.
+The recommended topology: **Vercel** serves the static React client (CDN), and **Render** runs
+the realtime backend (Express + Socket.IO) which holds all room state. The client opens a
+WebSocket directly to the Render backend. See [`docs/backend-architecture.md`](docs/backend-architecture.md)
+for the full design.
 
-**Build command:** `npm install && npm run build`
-**Start command:** `npm start`
+> The app also still runs as a **single service** anywhere (the server serves `client/dist` when
+> it's present) — handy for one-box hosts. The split below is the primary path.
 
-### Render
-1. New → **Web Service**, connect the repo.
-2. Build: `npm install && npm run build` · Start: `npm start`
-3. Env: set `USE_MOCKS=true` (or add `LLM_API_KEY` / `PLACES_API_KEY` and set `USE_MOCKS=false`),
-   plus `DEFAULT_CITY`. `PORT` is injected by Render.
+### 1. Backend on Render (API + WebSockets)
 
-### Railway
-1. New Project → **Deploy from repo**.
-2. Railway auto-detects Node. Set Build `npm run build`, Start `npm start`.
-3. Add the same env vars. `PORT` is injected.
+A Blueprint is included ([`render.yaml`](render.yaml)):
 
-### Fly.io
-```bash
-fly launch --no-deploy           # generates fly.toml; set internal_port = 3001
-fly secrets set USE_MOCKS=true DEFAULT_CITY="San Francisco"
-fly deploy
-```
+1. Render → **New +** → **Blueprint**, pick this repo. It provisions a free Web Service:
+   build `npm install`, start `npm start`, health check `/api/health`.
+2. Set env vars in the dashboard:
+   - `USE_MOCKS=true` (or `false` + `LLM_API_KEY` / `PLACES_API_KEY` for real AI/Places)
+   - `DEFAULT_CITY` (e.g. `San Francisco`)
+   - `CLIENT_ORIGIN` = your Vercel URL, e.g. `https://where-to.vercel.app` (no trailing slash;
+     `*.vercel.app` preview deploys are allowed automatically)
+3. Note the service URL, e.g. `https://where-to-api.onrender.com`.
 
-> Whichever platform: keep `npm run build` in the build step (it needs devDependencies — don't
-> set `NODE_ENV=production` during install, or Vite/TS won't be available to build the client).
+> Backend-only build doesn't compile the client, so `NODE_ENV=production` at install is fine here
+> (`tsx` is a runtime dependency).
+
+### 2. Client on Vercel (static SPA)
+
+[`vercel.json`](vercel.json) configures the Vite build + SPA routing:
+
+1. Vercel → **New Project**, import this repo (root). It auto-detects the config.
+2. Set one env var: `VITE_SERVER_URL` = your Render URL from step 1
+   (e.g. `https://where-to-api.onrender.com`). It's **build-time** — redeploy after changing it.
+3. Deploy. Vercel installs devDependencies and runs `npm run build` → `client/dist`.
+
+> Don't set `NODE_ENV=production` on Vercel — the build needs devDependencies (Vite/React/TS).
+
+### 3. Free-tier note ⚠️ (single-room demos)
+
+Render's free tier **sleeps after ~15 min idle** and cold-starts in ~30–60s, **wiping in-memory
+rooms** on sleep/redeploy. For a single-room demo this is usually fine — the client shows a
+"waking the server up…" message on first connect, and reconnects rebind players to their slots.
+
+To avoid cold starts during an event, keep the backend warm with a free uptime pinger
+(UptimeRobot / cron-job.org) hitting `https://<your-render-url>/api/health` every ~10 minutes.
+(State still resets on redeploy — don't push mid-game.)
 
 ---
 
@@ -139,9 +157,13 @@ fly deploy
 - **Sync model:** the server holds authoritative room state; every transition broadcasts a
   sanitized `RoomView` to the room plus a per-player `PrivateState` (your questions, your pick).
   Answers stay private until the voting phase.
-- **Reconnect:** clients carry a persistent `playerId` in `localStorage`. Rejoining with the same
-  id (or the same name) restores your slot — no duplicates, score intact. Host migrates to the
-  next connected player if the host drops.
+- **Reconnect:** clients carry a persistent `playerId` in `localStorage`. On a transport drop the
+  client auto-re-emits `room:join`, and the server's same-id path rebinds the new socket to the
+  existing slot — no duplicates, score intact. Host migrates to the next connected human if the
+  host drops.
+- **Cross-origin:** the client connects to `VITE_SERVER_URL` (the Render backend) when set, else
+  same-origin. The backend allows browser origins via the `CLIENT_ORIGIN` allowlist (plus
+  `*.vercel.app`).
 - **Auto vs. manual gates:** auto-advance when waiting on *all-players-submitted*
   (locked-in, answered, voted); host gates the deliberate steps (*Start*, *Next round*).
 - **Services:** all AI/places access is isolated behind two modules with mock + live

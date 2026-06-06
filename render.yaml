@@ -1,0 +1,26 @@
+# Render Blueprint — deploys the realtime backend (API + WebSockets) only.
+# The client is hosted separately on Vercel. Apply via Render → "New +" → "Blueprint".
+services:
+  - type: web
+    name: where-to-api
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: USE_MOCKS
+        value: "true"
+      - key: DEFAULT_CITY
+        value: San Francisco
+      # Your Vercel production origin (no trailing slash). *.vercel.app previews
+      # are allowed automatically. Set this in the Render dashboard.
+      - key: CLIENT_ORIGIN
+        sync: false
+      # Optional — only needed if USE_MOCKS=false. Set in the dashboard, never commit.
+      - key: LLM_API_KEY
+        sync: false
+      - key: PLACES_API_KEY
+        sync: false
