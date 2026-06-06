@@ -1,7 +1,11 @@
+import { User } from 'lucide-react';
 import { useGame, useMe } from '../lib/socket.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { clearLastRoom } from '../lib/identity.ts';
-import { PlayerRow } from '../components/PlayerRow.tsx';
+import { PlayerTile, PlayerTileGhost } from '../components/PlayerRow.tsx';
+import { Screen } from '../components/layout/Screen.tsx';
+import { RoomCodeBanner } from '../components/layout/RoomCodeBanner.tsx';
+import { Button, Card, Badge } from '../components/ui';
 
 export function Lobby() {
   const { room, emit, setRoom } = useGame();
@@ -23,6 +27,7 @@ export function Lobby() {
     const ack = await emit('room:addBot');
     if (!ack.ok) show(ack.error ?? 'Could not add bot');
   }
+
   async function removeBot() {
     const ack = await emit('room:removeBot');
     if (!ack.ok) show(ack.error ?? 'Could not remove bot');
@@ -31,60 +36,57 @@ export function Lobby() {
   function leave() {
     clearLastRoom();
     setRoom(null);
-    // soft leave — socket stays connected; server marks disconnect on real drop.
     window.location.reload();
   }
 
   return (
-    <div className="screen lobby">
-      <div className="code-banner">
-        <span className="code-label">Join code</span>
-        <span className="code-big">{room.code}</span>
-        <span className="code-hint">Others tap “Join Room” and enter this</span>
-      </div>
+    <Screen className="lobby">
+      <RoomCodeBanner code={room.code} hint="Others tap Join Game and enter this code" />
 
-      <div className="section-head">
-        <h2>Players</h2>
-        <span className="pill">{connectedCount} in</span>
-      </div>
+      <Card variant="muted" padding="lg" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--ds-space-4)' }}>
+        <h3 className="phase-title" style={{ fontSize: 'var(--ds-text-2xl)', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 'var(--ds-space-2)' }}>
+          <User size={24} /> PLAYERS <Badge variant="secondary">{connectedCount} in</Badge>
+        </h3>
+        <ul className="player-grid">
+          {room.players.map((p, i) => (
+            <PlayerTile key={p.id} p={p} youId={me?.id} index={i} />
+          ))}
+          {Array.from({ length: Math.max(0, 4 - room.players.length) }).map((_, i) => (
+            <PlayerTileGhost key={`ghost-${i}`} />
+          ))}
+        </ul>
+      </Card>
 
-      <ul className="player-list">
-        {room.players.map((p) => (
-          <PlayerRow key={p.id} p={p} youId={me?.id} />
-        ))}
-        {Array.from({ length: Math.max(0, 2 - room.players.length) }).map((_, i) => (
-          <li key={`ghost-${i}`} className="player-row ghost">
-            <span className="avatar">?</span>
-            <span className="player-name">Waiting for players…</span>
-          </li>
-        ))}
-      </ul>
-
-      <div className="lobby-actions">
+      <div className="screen__actions">
         {isHost ? (
           <>
-            <button className="btn btn-primary big" disabled={connectedCount < 2} onClick={start}>
-              {connectedCount < 2 ? 'Need 2+ players' : `Start (${connectedCount})`}
-            </button>
+            <Button
+              variant={connectedCount < 2 ? 'disabled' : 'success'}
+              size="lg"
+              disabled={connectedCount < 2}
+              onClick={start}
+            >
+              {connectedCount < 2 ? 'NEED 2+ PLAYERS' : `START GAME (${connectedCount})`}
+            </Button>
             <div className="bot-controls">
-              <button className="btn btn-secondary" disabled={isFull} onClick={addBot}>
+              <Button variant="secondary" size="sm" block disabled={isFull} onClick={addBot}>
                 + Add test bot
-              </button>
+              </Button>
               {botCount > 0 && (
-                <button className="btn btn-ghost" onClick={removeBot}>
+                <Button variant="ghost" size="sm" block onClick={removeBot}>
                   − Remove bot
-                </button>
+                </Button>
               )}
             </div>
-            <p className="hint">Solo testing? Add a bot or two — they auto-play so you can run the whole game alone.</p>
+            <p className="hint">Solo testing? Add a bot or two — they auto-play the whole game with you.</p>
           </>
         ) : (
-          <p className="hint pulse">Waiting for host to start…</p>
+          <div className="host-wait-banner">Waiting for host to start…</div>
         )}
-        <button className="btn btn-ghost" onClick={leave}>
+        <Button variant="ghost" onClick={leave}>
           Leave
-        </button>
+        </Button>
       </div>
-    </div>
+    </Screen>
   );
 }
