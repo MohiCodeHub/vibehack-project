@@ -10,7 +10,6 @@ import { WaitingFor } from '../components/WaitingFor.tsx';
 import { Screen } from '../components/layout/Screen.tsx';
 import { Button, FormField, Input, SegmentedControl } from '../components/ui';
 import { Countdown } from '../components/Countdown.tsx';
-import { HostSkip } from '../components/HostSkip.tsx';
 
 type Path = 'choose' | 'manual' | 'swipe' | 'pick';
 
@@ -80,7 +79,6 @@ export function Selecting() {
           isDone={(p) => p.hasRestaurant}
         />
         <RestaurantCard r={priv!.restaurant!} championed />
-        <HostSkip label="Skip to questions ⏭" />
       </Screen>
     );
   }
@@ -156,8 +154,6 @@ export function Selecting() {
           </Button>
         </div>
       )}
-
-      <HostSkip label="Skip to questions ⏭" />
     </Screen>
   );
 }

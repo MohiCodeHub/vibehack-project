@@ -19,7 +19,24 @@ If a section below assumes something you already have, skip it. The list is orde
 
 ---
 
-## 1. The submit gate and phase transitions (`flow.ts`, `rooms.ts`)
+## Frontend note (post-redesign — read before any client change)
+
+The client was rebuilt on a design system, so file paths in the Visual checks below changed:
+
+- Screens live in `client/src/screens/*` and now wrap content in `<Screen>` (`components/layout/`).
+- Shared UI primitives are in `client/src/components/ui/` (`Button`, `Input`, `Textarea`, `SegmentedControl`, `FormField`, `Badge`, `Card`) — re-use these, don't hand-roll inputs/buttons.
+- Global styles are in `client/src/styles/app.css`; design tokens in `client/src/design/tokens.css` (`--ds-*`). **`client/src/styles.css` no longer exists** — put any new CSS in `app.css` using the `--ds-*` tokens.
+- New backend-facing widget added in Section 1: `components/Countdown.tsx` (renders `room.deadlineTs`).
+- UI copy is loud/caps ("CAST VOTE", "QUIZZIN' TIME", "LOCKED IN!"); answering is now **one question at a time** (Q1→Q3), and voting has 1/2/3 rank dots + a "CAST VOTE" button.
+
+---
+
+## 1. The submit gate and phase transitions (`flow.ts`, `rooms.ts`) — ✅ implemented
+
+Done on the `backend` branch: connected-only gates (1a, already present), server-authoritative
+phase timers with `deadlineTs` broadcast in `RoomView` + a `Countdown` (1c), and phase guards
+in the room engine (1d). **1b (host manual skip) was dropped at the user's request** — the
+phase timer is the only auto-advance safety net. Original notes kept below for reference.
 
 The single most common demo bug in this kind of game is "the game hangs because we are waiting on a submission that will never arrive." Audit `tick()` for these:
 
@@ -38,8 +55,10 @@ function allAnswered(room: Room) {
 
 If a player reconnects mid-phase, they get the `PrivateState` snapshot and can still submit. Good.
 
-### 1b. Host manual advance (safety net)
-Add a `host:next` socket event that force-advances the current phase, with a server-side guard checking `senderId === room.hostId`. Wire a "Skip / Next" button on the host screen for every phase. This is your live-demo escape hatch when anything wedges.
+### 1b. Host manual advance (safety net) — ❌ dropped
+Originally: a `host:next` event + a host "Skip / Next" button as a live-demo escape hatch.
+Removed at the user's request as unnecessary — the server-side phase timer (1c) already
+force-advances any wedged phase, so the manual button was redundant.
 
 ### 1c. Server-authoritative timers with `deadlineTs`
 If you do not already have phase timers, add them: store `deadlineTs: number | null` on the room, set a `setTimeout` that calls the same advance function the submit gate calls, and include `deadlineTs` in `RoomView`. The client renders a countdown from that timestamp; never trust the client clock for logic.
@@ -74,7 +93,7 @@ function inPhase(room: Room, ...phases: Phase[]) {
 if (!inPhase(room, 'answering')) return;
 ```
 
-**Visual check:** Open the game in two browser tabs (two players) and add a bot. Start, lock restaurants, reach the Answering screen. In tab 2, answer; in tab 1, leave it blank and close that tab. The remaining tab should still move on to Voting — either when the on-screen countdown hits 0, or when the host taps the new **Skip / Next** button. You should never be stuck on "waiting for players."
+**Visual check:** Open the game in two browser tabs (two players) and add a bot. Start, lock restaurants, reach the Answering screen — you should see a **⏱ countdown pill** at the top. In tab 2, step through and submit all answers; in tab 1, leave it blank and close that tab. The remaining tab should still move on to Voting on its own when the countdown hits 0. You should never be stuck on "waiting for players."
 
 ---
 
@@ -113,7 +132,7 @@ function validateVote(room: Room, voterId: string, picks: string[]): string | nu
 ### 2c. Idempotent submission
 Re-submitting a vote (network retry) should overwrite cleanly, not double-count. Same for answers and locks. Keyed-by-`playerId` maps already give you this for free; just confirm no handler does `array.push` anywhere.
 
-**Visual check:** Run a 2-player game (one tab + one bot): on the Voting screen you should be allowed to pick exactly **1** answer, and the leaderboard awards it +3. Then run a 4-player game (one tab + 3 bots): you should be required to pick **3** (🥇🥈🥉) before the Vote button enables, and you should not be able to pick your own answer or the same answer twice.
+**Visual check:** Run a 2-player game (one tab + one bot): on the Voting screen you should be allowed to pick exactly **1** answer, and the leaderboard awards it +3. Then run a 4-player game (one tab + 3 bots): you should be required to fill all **3** rank dots (1/2/3, 🥇🥈🥉) before the **"CAST VOTE"** button enables, and you should not be able to pick your own answer or the same answer twice.
 
 ---
 
@@ -145,7 +164,7 @@ if (taken.has(norm(input.name))) {
 
 The Places resolution step can short-circuit duplicates earlier by resolving to a `place_id` and comparing on that instead of name.
 
-**Visual check:** On the Home screen, try to join/create with an empty name — the button should stay disabled or show an error, never let you in blank. In Selecting, paste a giant block of text as a restaurant name; it should be cut off or rejected, not break the layout. Then in two tabs lock the same restaurant (e.g. "nonna's" vs "Nonna's") — the second tab should be told the destination is already taken.
+**Visual check:** On the Home screen, try to join/create with an empty name — the button should stay disabled or show an error, never let you in blank. In Selecting, choose "I have a pick" and paste a giant block of text into the restaurant search field; it should be cut off or rejected, not break the layout. Then in two tabs lock the same restaurant (e.g. "nonna's" vs "Nonna's") — the second tab should be told the destination is already taken.
 
 ---
 
@@ -197,7 +216,7 @@ function safeJson<T>(s: string): T | null {
 
 Validate shape after parsing. Never trust the parse alone.
 
-**Visual check:** Start the server with a deliberately bad/blank LLM key (live mode, not mocks), then play through. When you reach the Answering screen you should still see 3 real questions appear promptly (the mock fallback), not a spinner that never resolves or an empty screen. Also confirm questions show the instant Answering starts — no visible "loading questions" wait — proving they were pre-generated during Selecting.
+**Visual check:** Start the server with a deliberately bad/blank LLM key (live mode, not mocks), then play through. When you reach the Answering screen you should be able to step through all 3 questions (Q1/3 → Q3/3) with real prompts (the mock fallback), not a spinner that never resolves or an empty screen. Also confirm the first question (Q1/3) shows the instant Answering starts — no visible "loading questions" wait — proving they were pre-generated during Selecting.
 
 ---
 

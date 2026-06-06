@@ -7,7 +7,6 @@ import { WaitingFor } from '../components/WaitingFor.tsx';
 import { Screen } from '../components/layout/Screen.tsx';
 import { Button } from '../components/ui';
 import { Countdown } from '../components/Countdown.tsx';
-import { HostSkip } from '../components/HostSkip.tsx';
 
 const RANK_LABELS = ['🥇 +3', '🥈 +2', '🥉 +1'];
 
@@ -53,7 +52,6 @@ export function Voting() {
           isDone={(p) => p.hasVoted}
           icon="clock"
         />
-        <HostSkip label="Skip to results ⏭" />
       </Screen>
     );
   }
@@ -111,7 +109,6 @@ export function Voting() {
         >
           {busy ? 'Sending…' : 'CAST VOTE'} <Vote size={20} />
         </Button>
-        <HostSkip label="Skip to results ⏭" />
       </div>
     </Screen>
   );

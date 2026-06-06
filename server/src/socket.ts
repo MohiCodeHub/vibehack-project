@@ -19,7 +19,7 @@ import {
   privateStateFor,
   type Room,
 } from './rooms.ts';
-import { tick, forceAdvance, clearPhaseTimer } from './flow.ts';
+import { tick, clearPhaseTimer } from './flow.ts';
 import { generateSwipeCards } from './services/aiService.ts';
 import { resolveRestaurant, candidatesForProfile, type LatLng } from './services/placesService.ts';
 
@@ -91,25 +91,6 @@ export function registerHandlers(io: Server, socket: Socket): void {
     if (res.error) return cb(fail(res.error));
     cb(ok());
     await tick(room); // bots lock their picks immediately
-    broadcast(io, room);
-  });
-
-  // Host-only escape hatch: force the current phase forward when anything wedges (1b).
-  socket.on('host:next', async (a: unknown, b: unknown) => {
-    const { cb } = args(a, b);
-    const room = joinedCode ? getRoom(joinedCode) : undefined;
-    if (!room || !myPlayerId) return cb(fail('Not in a room'));
-    if (myPlayerId !== room.hostId) return cb(fail('Only the host can skip'));
-    if (room.phase === 'leaderboard') {
-      const res = nextRound(room, myPlayerId);
-      if (res.error) return cb(fail(res.error));
-    } else if (room.phase === 'selecting' || room.phase === 'answering' || room.phase === 'voting') {
-      forceAdvance(room);
-    } else {
-      return cb(fail('Nothing to skip here'));
-    }
-    cb(ok());
-    await tick(room);
     broadcast(io, room);
   });
 

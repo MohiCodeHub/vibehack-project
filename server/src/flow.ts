@@ -178,9 +178,9 @@ async function onExpire(code: string): Promise<void> {
 /**
  * Move the current timed phase forward even though not everyone has acted. Players who
  * didn't lock get a random pick (so they still get questions); missing answers/votes
- * simply don't count. Host "Skip" uses this same path.
+ * simply don't count. Called when a phase timer expires.
  */
-export function forceAdvance(room: Room): void {
+function forceAdvance(room: Room): void {
   if (room.phase === 'selecting') {
     // Give any holdout a pick so they still get questions; the caller's tick() then
     // sees everyone locked and runs the (single, async) transition to answering.

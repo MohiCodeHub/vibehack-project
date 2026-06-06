@@ -7,7 +7,6 @@ import { WaitingFor } from '../components/WaitingFor.tsx';
 import { Screen } from '../components/layout/Screen.tsx';
 import { Button, Textarea } from '../components/ui';
 import { Countdown } from '../components/Countdown.tsx';
-import { HostSkip } from '../components/HostSkip.tsx';
 
 export function Answering() {
   const { room, priv, emit } = useGame();
@@ -52,7 +51,6 @@ export function Answering() {
           isDone={(p) => p.hasAnswered}
           icon="clock"
         />
-        <HostSkip label="Skip to voting ⏭" />
       </Screen>
     );
   }
@@ -105,7 +103,6 @@ export function Answering() {
         >
           {currentQ === questions.length - 1 ? 'FINISH' : 'NEXT'} <Send size={20} />
         </Button>
-        <HostSkip label="Skip to voting ⏭" />
       </div>
     </Screen>
   );

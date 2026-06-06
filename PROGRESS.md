@@ -4,7 +4,7 @@ Tick these off as we go. Tasks mirror the 11 sections in `plan.md`.
 
 ## 1. Submit gate & phase transitions
 - [ ] 1a. Advance on connected players (+ bots) only; disconnected can't block
-- [ ] 1b. Host `host:next` force-advance event + "Skip / Next" button
+- [x] 1b. ~~Host force-advance event + button~~ — dropped (timer covers it)
 - [ ] 1c. Server-authoritative phase timers with `deadlineTs` in `RoomView`
 - [ ] 1d. Phase guards on every socket handler
 

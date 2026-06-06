@@ -848,7 +848,7 @@ body {
   min-width: 0;
 }
 
-/* ===== Phase countdown + host skip (Section 1) ===== */
+/* ===== Phase countdown (Section 1) ===== */
 
 .countdown {
   align-self: center;
@@ -874,10 +874,4 @@ body {
 @keyframes countdown-pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.08); }
-}
-
-.skip-btn {
-  align-self: center;
-  margin-top: var(--ds-space-3);
-  opacity: 0.85;
 }
