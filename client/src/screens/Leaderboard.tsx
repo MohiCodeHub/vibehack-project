@@ -1,5 +1,8 @@
+import { ArrowRight } from 'lucide-react';
 import { useGame, useMe } from '../lib/socket.tsx';
 import { LeaderboardList } from '../components/LeaderboardList.tsx';
+import { Screen } from '../components/layout/Screen.tsx';
+import { Button } from '../components/ui';
 
 export function Leaderboard() {
   const { room, emit } = useGame();
@@ -10,20 +13,25 @@ export function Leaderboard() {
   const isLast = room.round + 1 >= room.totalRounds;
 
   return (
-    <div className="screen leaderboard">
-      <h2 className="phase-title">
-        {isLast ? 'Final scores!' : `After round ${room.round + 1}`}
-      </h2>
+    <Screen className="leaderboard">
+      <div style={{ textAlign: 'center' }}>
+        <h2 className="phase-title phase-title--lg">LEADERBOARD</h2>
+        <p className="phase-sub">
+          {isLast ? 'Final scores!' : `Round ${room.round + 1} of ${room.totalRounds}`}
+        </p>
+      </div>
+
       <LeaderboardList players={room.players} youId={me?.id} />
-      <div className="lobby-actions">
+
+      <div className="screen__actions">
         {isHost ? (
-          <button className="btn btn-primary big" onClick={() => emit('round:next')}>
-            {isLast ? '🎉 Reveal the winner' : 'Next round →'}
-          </button>
+          <Button variant="secondary" size="lg" onClick={() => emit('round:next')}>
+            {isLast ? 'FINAL RESULTS' : 'NEXT ROUND'} <ArrowRight size={32} />
+          </Button>
         ) : (
-          <p className="hint pulse">Waiting for host…</p>
+          <div className="host-wait-banner">Waiting for host…</div>
         )}
       </div>
-    </div>
+    </Screen>
   );
 }

@@ -1,7 +1,11 @@
 import { useMemo, useState } from 'react';
+import { Vote, Check } from 'lucide-react';
+import { motion as Motion } from 'motion/react';
 import { useGame, useMe } from '../lib/socket.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { WaitingFor } from '../components/WaitingFor.tsx';
+import { Screen } from '../components/layout/Screen.tsx';
+import { Button } from '../components/ui';
 
 const RANK_LABELS = ['🥇 +3', '🥈 +2', '🥉 +1'];
 
@@ -21,7 +25,7 @@ export function Voting() {
   function toggle(authorId: string) {
     setRanked((cur) => {
       if (cur.includes(authorId)) return cur.filter((id) => id !== authorId);
-      if (cur.length >= 3) return cur; // cap at top-3
+      if (cur.length >= 3) return cur;
       return [...cur, authorId];
     });
   }
@@ -37,48 +41,72 @@ export function Voting() {
   if (submitted) {
     const players = room?.players.filter((p) => p.connected && p.hasRestaurant) ?? [];
     return (
-      <div className="screen voting">
-        <h2 className="phase-title">Vote cast! 🗳️</h2>
+      <Screen center className="voting">
         <WaitingFor
-          label="Waiting for everyone to vote…"
+          label="VOTE CAST!"
           done={players.filter((p) => p.hasVoted).length}
           total={players.length}
           players={players}
           isDone={(p) => p.hasVoted}
+          icon="clock"
         />
-      </div>
+      </Screen>
     );
   }
 
   return (
-    <div className="screen voting">
-      <div className="round-head">
-        <span className="round-pill">
+    <Screen className="voting">
+      <div className="vote-round-head">
+        <span className="vote-round-pill">
           Round {(room?.round ?? 0) + 1} / {room?.totalRounds}
         </span>
-        <h2 className="round-prompt">{room?.roundPrompt}</h2>
-        <p className="hint">Tap your top 3 in order. You can’t vote for yourself.</p>
+        <h2 className="vote-round-prompt">{room?.roundPrompt}</h2>
+        <p className="phase-sub">Pick your top 3 in order. You can&apos;t vote for yourself.</p>
       </div>
 
-      <div className="vote-grid">
+      <div className="vote-list">
         {cards.map((c, i) => {
           const rank = ranked.indexOf(c.authorId);
           return (
-            <button
+            <Motion.button
               key={c.id}
-              className={`answer-card tilt-${i % 4} ${rank > -1 ? 'picked' : ''}`}
+              type="button"
+              initial={{ opacity: 0, x: i % 2 === 0 ? -20 : 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className={`vote-card${rank > -1 ? ' vote-card--picked' : ''}`}
               onClick={() => toggle(c.authorId)}
             >
-              {rank > -1 && <span className="rank-badge">{RANK_LABELS[rank]}</span>}
-              <span className="answer-text">{c.text}</span>
-            </button>
+              {rank > -1 && <span className="vote-card__rank">{RANK_LABELS[rank]}</span>}
+              <p className="vote-card__text">&ldquo;{c.text}&rdquo;</p>
+              {rank > -1 && (
+                <span style={{ position: 'absolute', top: -8, right: -8 }}>
+                  <Check size={16} />
+                </span>
+              )}
+            </Motion.button>
           );
         })}
       </div>
 
-      <button className="btn btn-primary big sticky-submit" disabled={busy || ranked.length === 0} onClick={submit}>
-        {busy ? 'Sending…' : `Submit ${ranked.length ? `(${ranked.length})` : 'votes'}`}
-      </button>
-    </div>
+      <div className="vote-footer">
+        <div className="vote-rank-dots">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className={`vote-rank-dot${ranked.length >= n ? ' vote-rank-dot--filled' : ''}`}>
+              {n}
+            </div>
+          ))}
+        </div>
+        <Button
+          variant={ranked.length === 0 || busy ? 'disabled' : 'success'}
+          size="sm"
+          block={false}
+          disabled={busy || ranked.length === 0}
+          onClick={submit}
+        >
+          {busy ? 'Sending…' : 'CAST VOTE'} <Vote size={20} />
+        </Button>
+      </div>
+    </Screen>
   );
 }

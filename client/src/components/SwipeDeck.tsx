@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react';
 import type { SwipeCard, SwipeChoice } from '@shared/types.ts';
+import { Heart, X } from 'lucide-react';
+import { AnimatePresence, motion as Motion } from 'motion/react';
 
 /**
- * A swipeable stack of binary trade-off cards. Touch-drag OR tap the buttons
- * (accessibility). Calls onDone with the choices once the deck is exhausted.
+ * Swipeable binary trade-off cards. Touch-drag OR tap buttons (accessibility).
  */
 export function SwipeDeck({ cards, onDone }: { cards: SwipeCard[]; onDone: (c: SwipeChoice[]) => void }) {
   const [index, setIndex] = useState(0);
@@ -15,7 +16,7 @@ export function SwipeDeck({ cards, onDone }: { cards: SwipeCard[]; onDone: (c: S
   const card = cards[index];
 
   function commit(pick: 'left' | 'right') {
-    if (leaving) return;
+    if (leaving || !card) return;
     setLeaving(pick);
     const next = [...choices, { cardId: card.id, pick }];
     window.setTimeout(() => {
@@ -44,39 +45,47 @@ export function SwipeDeck({ cards, onDone }: { cards: SwipeCard[]; onDone: (c: S
 
   const rot = leaving ? (leaving === 'right' ? 18 : -18) : drag / 20;
   const tx = leaving ? (leaving === 'right' ? 500 : -500) : drag;
-  const tilt = drag > 40 ? 'right' : drag < -40 ? 'left' : null;
 
   return (
     <div className="swipe-wrap">
       <div className="swipe-progress">
         {cards.map((_, i) => (
-          <span key={i} className={`tick ${i < index ? 'done' : i === index ? 'now' : ''}`} />
+          <span
+            key={i}
+            className={`swipe-progress__tick${i < index ? ' swipe-progress__tick--done' : ''}${i === index ? ' swipe-progress__tick--now' : ''}`}
+          />
         ))}
       </div>
 
       <div className="swipe-stage">
-        <div
-          className={`swipe-card ${leaving ? 'leaving' : ''}`}
-          style={{ transform: `translateX(${tx}px) rotate(${rot}deg)` }}
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-        >
-          <div className="swipe-axis">{card.axis}</div>
-          <div className={`swipe-side left ${tilt === 'left' ? 'hot' : ''}`}>{card.left}</div>
-          <div className="swipe-vs">vs</div>
-          <div className={`swipe-side right ${tilt === 'right' ? 'hot' : ''}`}>{card.right}</div>
-        </div>
+        <AnimatePresence mode="wait">
+          <Motion.div
+            key={card.id}
+            className="swipe-card"
+            style={{ transform: `translateX(${tx}px) rotate(${rot}deg)` }}
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 1.2, opacity: 0 }}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+          >
+            <p className="swipe-card__question">{card.axis}</p>
+            <p className="phase-sub" style={{ marginBottom: 'auto' }}>
+              {card.left} vs {card.right}
+            </p>
+            <div className="swipe-card__actions">
+              <button type="button" className="swipe-btn-round swipe-btn-round--no" onClick={() => commit('left')} aria-label={card.left}>
+                <X size={32} />
+              </button>
+              <button type="button" className="swipe-btn-round swipe-btn-round--yes" onClick={() => commit('right')} aria-label={card.right}>
+                <Heart size={32} fill="currentColor" />
+              </button>
+            </div>
+          </Motion.div>
+        </AnimatePresence>
       </div>
 
-      <div className="swipe-buttons">
-        <button className="btn swipe-btn left" onClick={() => commit('left')}>
-          ← {card.left}
-        </button>
-        <button className="btn swipe-btn right" onClick={() => commit('right')}>
-          {card.right} →
-        </button>
-      </div>
       <p className="hint">Swipe or tap · {cards.length - index} left</p>
     </div>
   );
