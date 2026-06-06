@@ -14,10 +14,12 @@ import {
   hasAnsweredAll,
   hasVoted,
   voteCardsForRound,
+  getRoom,
   type Room,
   type Player,
 } from './rooms.ts';
 import { randomSampleRestaurant } from './services/placesService.ts';
+import type { Phase } from '../../shared/types.ts';
 
 // Canned, mildly-unhinged bot answers per round (kept funny + on-theme).
 const BOT_ANSWERS: string[][] = [
@@ -100,5 +102,96 @@ export async function tick(room: Room): Promise<void> {
       changed = true;
     }
     if (driveBots(room)) changed = true;
+  }
+  armTimer(room);
+}
+
+// ---- Server-authoritative phase timers (Section 1c) ----
+//
+// Each timed phase gets a deadline. When it expires we force-advance using the same
+// path the submit gate uses, so a missing/slow/disconnected player can never wedge a
+// room. The client renders a countdown from room.deadlineTs — it's never trusted for logic.
+
+/** How long each timed phase lasts, in ms. Untimed phases (lobby/leaderboard/final) are absent. */
+const PHASE_MS: Partial<Record<Phase, number>> = {
+  selecting: 90_000,
+  answering: 75_000,
+  voting: 45_000,
+};
+
+interface PhaseTimer {
+  handle: ReturnType<typeof setTimeout>;
+  deadlineTs: number;
+  /** The exact phase + round this timer was armed for, to detect a new phase instance. */
+  phase: Phase;
+  round: number;
+}
+const timers = new Map<string, PhaseTimer>();
+
+/** Broadcast hook, injected once at startup so timer expiry can push state to clients. */
+let broadcaster: (room: Room) => void = () => {};
+export function setBroadcaster(fn: (room: Room) => void): void {
+  broadcaster = fn;
+}
+
+/** Clear and forget a room's phase timer. Safe to call when none is set. */
+export function clearPhaseTimer(code: string): void {
+  const t = timers.get(code);
+  if (t) {
+    clearTimeout(t.handle);
+    timers.delete(code);
+  }
+}
+
+/**
+ * Ensure the room's timer matches its current phase/round. Starts a fresh timer when
+ * entering a timed phase (or a new voting round), and clears it on untimed phases.
+ */
+function armTimer(room: Room): void {
+  const ms = PHASE_MS[room.phase];
+  if (ms == null) {
+    clearPhaseTimer(room.code);
+    room.deadlineTs = null;
+    return;
+  }
+  const existing = timers.get(room.code);
+  if (existing && existing.phase === room.phase && existing.round === room.round) {
+    return; // already counting down for this exact phase instance
+  }
+  clearPhaseTimer(room.code);
+  const deadlineTs = Date.now() + ms;
+  const handle = setTimeout(() => onExpire(room.code), ms);
+  timers.set(room.code, { handle, deadlineTs, phase: room.phase, round: room.round });
+  room.deadlineTs = deadlineTs;
+}
+
+/** Timer fired: force the current phase to advance, then re-tick + re-arm + broadcast. */
+async function onExpire(code: string): Promise<void> {
+  timers.delete(code);
+  const room = getRoom(code);
+  if (!room) return;
+  forceAdvance(room);
+  await tick(room); // drive bots in the new phase + arm its timer
+  broadcaster(room);
+}
+
+/**
+ * Move the current timed phase forward even though not everyone has acted. Players who
+ * didn't lock get a random pick (so they still get questions); missing answers/votes
+ * simply don't count. Host "Skip" uses this same path.
+ */
+export function forceAdvance(room: Room): void {
+  if (room.phase === 'selecting') {
+    // Give any holdout a pick so they still get questions; the caller's tick() then
+    // sees everyone locked and runs the (single, async) transition to answering.
+    for (const p of room.players.values()) {
+      if ((p.connected || p.isBot) && !p.restaurant) {
+        lockRestaurant(room, p.id, randomSampleRestaurant());
+      }
+    }
+  } else if (room.phase === 'answering') {
+    beginVoting(room);
+  } else if (room.phase === 'voting') {
+    tallyRoundAndAdvance(room);
   }
 }

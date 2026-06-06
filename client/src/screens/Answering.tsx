@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useGame, useMe } from '../lib/socket.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { WaitingFor } from '../components/WaitingFor.tsx';
+import { Countdown } from '../components/Countdown.tsx';
+import { HostSkip } from '../components/HostSkip.tsx';
 
 export function Answering() {
   const { room, priv, emit } = useGame();
@@ -26,6 +28,7 @@ export function Answering() {
     const players = room?.players.filter((p) => p.connected && p.hasRestaurant) ?? [];
     return (
       <div className="screen answering">
+        <Countdown />
         <h2 className="phase-title">Answers in! ✍️</h2>
         <WaitingFor
           label="Waiting for everyone to answer…"
@@ -34,12 +37,14 @@ export function Answering() {
           players={players}
           isDone={(p) => p.hasAnswered}
         />
+        <HostSkip label="Skip to voting ⏭" />
       </div>
     );
   }
 
   return (
     <div className="screen answering">
+      <Countdown />
       <h2 className="phase-title">Your questions</h2>
       <p className="hint">Be funny. You’ll vote on the best answers next.</p>
       <div className="q-list">
@@ -61,6 +66,7 @@ export function Answering() {
       <button className="btn btn-primary big sticky-submit" disabled={busy || !allFilled} onClick={submit}>
         {busy ? 'Sending…' : 'Submit answers'}
       </button>
+      <HostSkip label="Skip to voting ⏭" />
     </div>
   );
 }

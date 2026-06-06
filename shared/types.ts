@@ -86,6 +86,11 @@ export interface RoomView {
   /** Current voting round index (0-based) when phase === 'voting' | 'leaderboard'. */
   round: number;
   totalRounds: number;
+  /**
+   * Server-authoritative deadline (epoch ms) for the current timed phase, or null
+   * when the phase isn't timed. Clients render a countdown from this — never their own clock.
+   */
+  deadlineTs: number | null;
   /** The shared prompt template for the current voting round. */
   roundPrompt?: string;
   /** Answer cards for the current voting round (own card not votable). */

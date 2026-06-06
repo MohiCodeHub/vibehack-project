@@ -40,6 +40,8 @@ interface Room {
   order: string[];
   round: number; // current voting round
   createdAt: number;
+  /** Deadline (epoch ms) for the current timed phase, or null when untimed. */
+  deadlineTs: number | null;
   winner?: { playerName: string; restaurant: Restaurant };
 }
 
@@ -67,6 +69,7 @@ export function createRoom(outingType: string, host: { id: string; name: string;
     order: [],
     round: 0,
     createdAt: Date.now(),
+    deadlineTs: null,
   };
   rooms.set(code, room);
   addPlayer(room, { ...host, isHost: true });
@@ -379,6 +382,7 @@ export function serializeRoom(room: Room): RoomView {
     players,
     round: room.round,
     totalRounds: TOTAL_ROUNDS,
+    deadlineTs: room.deadlineTs,
     winner: room.winner,
   };
 

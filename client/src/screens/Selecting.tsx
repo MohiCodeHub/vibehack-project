@@ -6,6 +6,8 @@ import { getLocation, type LatLng } from '../lib/geo.ts';
 import { SwipeDeck } from '../components/SwipeDeck.tsx';
 import { RestaurantCard } from '../components/RestaurantCard.tsx';
 import { WaitingFor } from '../components/WaitingFor.tsx';
+import { Countdown } from '../components/Countdown.tsx';
+import { HostSkip } from '../components/HostSkip.tsx';
 
 type Path = 'choose' | 'manual' | 'swipe' | 'pick';
 
@@ -66,6 +68,7 @@ export function Selecting() {
     const others = room?.players.filter((p) => p.connected) ?? [];
     return (
       <div className="screen selecting">
+        <Countdown />
         <h2 className="phase-title">Locked in! 🔒</h2>
         <RestaurantCard r={priv!.restaurant!} championed />
         <WaitingFor
@@ -75,12 +78,14 @@ export function Selecting() {
           players={others}
           isDone={(p) => p.hasRestaurant}
         />
+        <HostSkip label="Skip to questions ⏭" />
       </div>
     );
   }
 
   return (
     <div className="screen selecting">
+      <Countdown />
       <h2 className="phase-title">Champion a restaurant</h2>
 
       {path === 'choose' && (
@@ -131,6 +136,8 @@ export function Selecting() {
           </button>
         </div>
       )}
+
+      <HostSkip label="Skip to questions ⏭" />
     </div>
   );
 }

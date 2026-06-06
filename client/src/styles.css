@@ -857,3 +857,37 @@ body {
   max-width: 90vw;
   text-align: center;
 }
+
+/* ===== Phase countdown + host skip (Section 1) ===== */
+
+.countdown {
+  align-self: center;
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: 0.5px;
+  color: var(--ink);
+  background: var(--bg-2);
+  border: var(--border);
+  border-radius: 999px;
+  padding: 4px 16px;
+  margin-bottom: 10px;
+  box-shadow: 0 3px 0 var(--shadow);
+}
+
+.countdown.low {
+  color: var(--bg);
+  background: var(--yellow);
+  animation: countdown-pulse 1s ease-in-out infinite;
+}
+
+@keyframes countdown-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+.skip-btn {
+  align-self: center;
+  margin-top: 14px;
+  opacity: 0.85;
+  font-size: 0.95rem;
+}
