@@ -6,8 +6,10 @@ import { getLocation, type LatLng } from '../lib/geo.ts';
 import { SwipeDeck } from '../components/SwipeDeck.tsx';
 import { RestaurantCard } from '../components/RestaurantCard.tsx';
 import { WaitingFor } from '../components/WaitingFor.tsx';
+import { Utensils, Sparkles } from 'lucide-react';
 import { Screen } from '../components/layout/Screen.tsx';
 import { Button, SegmentedControl } from '../components/ui';
+import { DecidingMascot } from '../components/illustrations/Mascots.tsx';
 import { PlacesAutocomplete, type PlaceSuggestion } from '../components/PlacesAutocomplete.tsx';
 import { Countdown } from '../components/Countdown.tsx';
 
@@ -110,14 +112,19 @@ export function Selecting() {
       </div>
 
       {path === 'choose' && (
-        <div className="screen__actions">
-          <Button variant="primary" size="lg" disabled={busy} onClick={() => setPath('manual')}>
-            🍴 I have a pick
-          </Button>
-          <Button variant="secondary" size="lg" disabled={busy} onClick={startSwipe}>
-            🤔 Help me decide
-          </Button>
-          <p className="hint">{loc ? 'Using your location' : 'Using default city'}</p>
+        <div className="hero-center">
+          <div className="hero-art">
+            <DecidingMascot />
+          </div>
+          <div className="screen__actions">
+            <Button variant="primary" size="lg" disabled={busy} onClick={() => setPath('manual')}>
+              <Utensils size={24} /> I have a pick
+            </Button>
+            <Button variant="secondary" size="lg" disabled={busy} onClick={startSwipe}>
+              <Sparkles size={24} /> Help me decide
+            </Button>
+            <p className="hint">{loc ? 'Using your location' : 'Using default city'}</p>
+          </div>
         </div>
       )}
 

@@ -6,6 +6,7 @@ import { useToast } from '../components/Toast.tsx';
 import { getStoredName, setStoredName, getPlayerId, getLastRoom, setLastRoom } from '../lib/identity.ts';
 import { Screen } from '../components/layout/Screen.tsx';
 import { Logo } from '../components/layout/Logo.tsx';
+import { CrewMascot } from '../components/illustrations/Mascots.tsx';
 import { Button, Card, FormField, Input } from '../components/ui';
 
 type Mode = 'initial' | 'create' | 'join';
@@ -62,24 +63,30 @@ export function Home() {
   }
 
   return (
-    <Screen center className="home">
-      <Logo muted={mode !== 'initial'} animate={mode === 'initial'} />
-
+    <Screen className="home">
       {mode === 'initial' && (
-        <div className="screen__actions">
-          <Button variant="secondary" size="lg" disabled={busy} onClick={() => setMode('create')}>
-            <Play fill="currentColor" size={24} /> CREATE GAME
-          </Button>
-          <Button variant="accent" size="lg" disabled={busy} onClick={() => setMode('join')}>
-            <Users size={24} /> JOIN GAME
-          </Button>
-          {lastRoom && (
-            <Button variant="ghost" disabled={busy || !connected} onClick={() => join(lastRoom)}>
-              Rejoin {lastRoom}
+        <div className="hero-center">
+          <Logo animate />
+          <div className="hero-art">
+            <CrewMascot />
+          </div>
+          <div className="screen__actions">
+            <Button variant="secondary" size="lg" disabled={busy} onClick={() => setMode('create')}>
+              <Play fill="currentColor" size={24} /> CREATE GAME
             </Button>
-          )}
+            <Button variant="accent" size="lg" disabled={busy} onClick={() => setMode('join')}>
+              <Users size={24} /> JOIN GAME
+            </Button>
+            {lastRoom && (
+              <Button variant="ghost" disabled={busy || !connected} onClick={() => join(lastRoom)}>
+                Rejoin {lastRoom}
+              </Button>
+            )}
+          </div>
         </div>
       )}
+
+      {mode !== 'initial' && <Logo muted />}
 
       {(mode === 'create' || mode === 'join') && (
         <Motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
