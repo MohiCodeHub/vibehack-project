@@ -67,6 +67,7 @@ export function Voting() {
           Round {(room?.round ?? 0) + 1} / {room?.totalRounds}
         </span>
         <h2 className="vote-round-prompt">{room?.roundPrompt}</h2>
+        {room?.roundSnark && <p className="vote-host-snark">🎤 {room.roundSnark}</p>}
         <p className="phase-sub">
           {need === 1 ? 'Pick the best answer.' : `Rank your top ${need} in order.`} You can&apos;t vote for yourself.
         </p>

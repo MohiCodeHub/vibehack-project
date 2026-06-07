@@ -6,7 +6,7 @@
 // or malformed LLM response can NEVER wedge the game (Section 4). On any failure we log
 // and return the mock.
 
-import type { Restaurant, SwipeCard, Question } from '../../../shared/types.ts';
+import type { SwipeCard } from '../../../shared/types.ts';
 
 const USE_MOCKS = process.env.USE_MOCKS === 'true' || !process.env.LLM_API_KEY;
 const LLM_PROVIDER = (process.env.LLM_PROVIDER || 'openai').toLowerCase(); // 'openai' | 'anthropic'
@@ -56,58 +56,89 @@ Use these axis ids in this order: vibe, adventure, pace, budget, volume.`;
   return MOCK_SWIPE_CARDS;
 }
 
-// ---- Comedic, restaurant-aware questions ----
+// ---- Round prompts (chaotic, category-aware game-show prompts) ----
+//
+// Three prompts are generated PER ROOM from the outing category (not per player), so
+// everyone answers the same prompts and the voting header matches the question. Each
+// carries a short host "snark" line for flavor.
 
-/** Templates produce 3 questions personalized to the player's restaurant. */
-function mockQuestionTemplates(r: Restaurant): string[] {
-  const name = r.name;
-  return [
-    `You're trying to convince the group to go to ${name}. What's the most unhinged reason you give?`,
-    `${name} just added a secret menu item named after you. What is it and why is it dangerous?`,
-    `A critic reviews ${name} in exactly one sentence. They were... not sober. What did they write?`,
-  ];
+export interface RoundPrompt {
+  /** The prompt shown to every player (and as the voting-round header). */
+  text: string;
+  /** A 1-sentence snarky host quip read out after the prompt. */
+  snark: string;
 }
 
-export async function generateQuestions(player: {
-  name: string;
-  restaurant: Restaurant;
-  outingType: string;
-}): Promise<Question[]> {
-  const texts = await generateQuestionTexts(player);
-  return texts.map((text, round) => ({ id: `q${round}`, round, text }));
+/** Dinner-flavored fallback prompts (used offline or on any LLM failure). */
+const MOCK_ROUND_PROMPTS: RoundPrompt[] = [
+  {
+    text: "Name a place that's objectively mediocre but you'll defend with your life.",
+    snark: 'Bold, defending mediocrity on live television. The committee respects the audacity.',
+  },
+  {
+    text: 'Pitch somewhere the vibes are terrible but it somehow cures a bad day.',
+    snark: 'Ah yes, emotional-support ambiance. Very scientific, very legally distinct from therapy.',
+  },
+  {
+    text: 'You have 10 minutes to make one gloriously questionable group decision. Where are we going?',
+    snark: 'Ten minutes. A countdown to regret. I have never been more invested.',
+  },
+];
+
+/** True if x looks like a usable round prompt from the LLM. */
+function toRoundPrompt(x: unknown): RoundPrompt | null {
+  if (!x || typeof x !== 'object') return null;
+  const o = x as Record<string, unknown>;
+  const text = typeof o.prompt === 'string' ? o.prompt.trim() : '';
+  if (!text) return null;
+  const snark = typeof o.host_snark === 'string' ? o.host_snark.trim() : '';
+  return { text: text.slice(0, 150), snark: snark.slice(0, 200) };
 }
 
-/** The raw 3 question strings — live with mock fallback, always exactly 3. */
-async function generateQuestionTexts(player: {
-  name: string;
-  restaurant: Restaurant;
-  outingType: string;
-}): Promise<string[]> {
-  if (USE_MOCKS) return mockQuestionTemplates(player.restaurant);
+/** The chaotic game-show-host system prompt, parameterized by the outing category. */
+function roundPromptInstruction(category: string): string {
+  return `# ROLE AND CONTEXT
+You are the chaotic, high-energy, and slightly passive-aggressive game show host of "Where To?", a Jackbox-style party game.
+The goal of this game is to cure "Group Indecision Syndrome" by forcing friends into hilarious, high-stakes debates over everyday choices.
+The players have provided a general category they are trying to decide on (e.g., "Dinner Tonight", "What Movie to Watch", "Weekend Activity").
+
+# YOUR TASK
+Generate a list of 3 quirky, hyper-specific game prompts based on the provided CATEGORY.
+These prompts will be given to the players. The players will input their answers, and those answers will later battle head-to-head in a voting bracket until one ultimate winner is chosen for the group to actually do.
+
+# RULES FOR GENERATING PROMPTS:
+1. BAN INDECISION: Never ask open-ended, boring questions like "What do you want to eat?" or "What genre do you like?" Instead, force them into a corner with hypotheticals, superlatives, or weird scenarios.
+2. PROVOKE A DEFENSE: The prompt should make the player want to aggressively defend their answer to their friends.
+3. MUST YIELD AN ACTIONABLE NOUN: The prompt must lead the player to submit a specific Place, Thing, or Activity that can actually be done/consumed by the group.
+4. KEEP IT SNAPPY: Prompts must be under 150 characters. Punchy, sassy, and readable on a TV screen.
+
+# EXAMPLES OF GREAT PROMPTS:
+If CATEGORY is "Dinner Tonight": "What's a restaurant that is objectively mediocre but you will defend with your life?" / "You have 10 minutes to ruin your diet. Where are we going?"
+If CATEGORY is "What Movie to Watch": "Name a movie that is completely brain-dead but impossible to look away from." / "Pitch a movie that feels like a warm hug after a terrible week."
+If CATEGORY is "Weekend Activity": "What is an activity that costs less than $20 but makes us feel dangerously alive?"
+
+# OUTPUT FORMAT
+Return ONLY JSON of the form {"prompts": [{"prompt": "...", "host_snark": "..."}]} with exactly 3 objects.
+Each object has "prompt" (the question shown to the player) and "host_snark" (a brief, 1-sentence snarky comment the host says after the prompt is read).
+
+INPUT CATEGORY: ${category}`;
+}
+
+/** Generate the 3 shared round prompts for an outing category. Falls back to the mock. */
+export async function generateRoundPrompts(outingType: string): Promise<RoundPrompt[]> {
+  if (USE_MOCKS) return MOCK_ROUND_PROMPTS;
   try {
-    const prompt = `Write exactly 3 short, comedic party-game questions for a player named "${player.name}" who is championing "${player.restaurant.name}"${
-      player.restaurant.category ? ` (${player.restaurant.category})` : ''
-    } as the group's pick for ${player.outingType}.
-Each question should be punchy (under 200 chars), funny, and reference their pick where natural.
-Return ONLY JSON of the form {"questions": ["...", "...", "..."]} with exactly 3 strings.`;
-    const arr = firstArray(await llmJson(prompt));
+    const arr = firstArray(await llmJson(roundPromptInstruction(outingType)));
     if (arr) {
-      const strings = arr.filter((s): s is string => typeof s === 'string' && s.trim().length > 0);
-      if (strings.length >= 3) return strings.slice(0, 3).map((s) => s.slice(0, 240));
+      const prompts = arr.map(toRoundPrompt).filter((p): p is RoundPrompt => p !== null);
+      if (prompts.length >= 3) return prompts.slice(0, 3);
     }
-    throw new Error('bad questions shape');
+    throw new Error('bad round-prompts shape');
   } catch (err) {
-    console.warn('[aiService] generateQuestions fell back to mock:', (err as Error).message);
-    return mockQuestionTemplates(player.restaurant);
+    console.warn('[aiService] generateRoundPrompts fell back to mock:', (err as Error).message);
+    return MOCK_ROUND_PROMPTS;
   }
 }
-
-/** The shared prompt template shown above the answer cards for a given round. */
-export const ROUND_PROMPTS = [
-  'The most unhinged reason to pick this place:',
-  'The dangerous secret menu item:',
-  'The drunk one-sentence review:',
-];
 
 // ---- LLM plumbing ----
 

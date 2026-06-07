@@ -93,6 +93,8 @@ export interface RoomView {
   deadlineTs: number | null;
   /** The shared prompt template for the current voting round. */
   roundPrompt?: string;
+  /** A snarky one-line host quip shown with the current round's prompt. */
+  roundSnark?: string;
   /** Answer cards for the current voting round (own card not votable). */
   voteCards?: VoteCard[];
   /** The winning restaurant, present when phase === 'final'. */

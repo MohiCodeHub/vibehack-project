@@ -192,6 +192,17 @@ selected by env; prompts now ask for a `{key:[...]}` object for reliable parsing
 live (OpenAI key → 0 fallbacks across runs), with a bad key (3 clean fallbacks, game still
 completes), and offline (mocks). Original notes kept below for reference.
 
+**Update — round-prompt model (per user request):** question generation moved from
+per-player/per-restaurant to **3 shared, category-based prompts per room** (`generateRoundPrompts`
+using a chaotic game-show-host system prompt keyed on `outingType`). Each prompt carries a
+`host_snark` quip now shown under the voting header (`RoomView.roundSnark`). Prompts are
+pre-generated once at `room:start` (`ensureRoomPrompts`) and copied to every player at
+`beginAnswering`. This also fixes a prior mismatch where players answered personalized
+questions but voting showed a single shared header. NOTE: the new prompts ask players to name
+an actionable place/thing, which overlaps the "champion a restaurant" selecting step and the
+"winner = champion's restaurant" rule — a game-flow decision to revisit with the outing-type
+feature.
+
 ### 4a. Wrap every call with timeout + try/catch + fallback to mock
 The mock is not just a dev convenience; it is your runtime fallback. Restructure so the live path is wrapped:
 
