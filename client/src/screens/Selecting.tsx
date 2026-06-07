@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Search } from 'lucide-react';
 import type { Restaurant, SwipeCard, SwipeChoice } from '@shared/types.ts';
 import { useGame } from '../lib/socket.tsx';
 import { useToast } from '../components/Toast.tsx';
@@ -8,7 +7,8 @@ import { SwipeDeck } from '../components/SwipeDeck.tsx';
 import { RestaurantCard } from '../components/RestaurantCard.tsx';
 import { WaitingFor } from '../components/WaitingFor.tsx';
 import { Screen } from '../components/layout/Screen.tsx';
-import { Button, FormField, Input, SegmentedControl } from '../components/ui';
+import { Button, SegmentedControl } from '../components/ui';
+import { PlacesAutocomplete, type PlaceSuggestion } from '../components/PlacesAutocomplete.tsx';
 import { Countdown } from '../components/Countdown.tsx';
 
 type Path = 'choose' | 'manual' | 'swipe' | 'pick';
@@ -24,7 +24,6 @@ export function Selecting() {
 
   const [path, setPath] = useState<Path>('choose');
   const [loc, setLoc] = useState<LatLng | null>(null);
-  const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
   const [candidates, setCandidates] = useState<Restaurant[]>([]);
   const [cards, setCards] = useState<SwipeCard[]>([]);
@@ -60,13 +59,11 @@ export function Selecting() {
     setPath('pick');
   }
 
-  async function searchManual() {
-    const label = pickFieldLabel(room?.decisionTopic);
-    if (!query.trim()) return show(`Enter ${label.toLowerCase()}`);
+  async function searchByPlaceId(suggestion: PlaceSuggestion) {
     setBusy(true);
-    const ack = await emit<{ restaurant: Restaurant }>('restaurant:search', { name: query.trim(), loc });
+    const ack = await emit<{ restaurant: Restaurant }>('restaurant:search', { placeId: suggestion.placeId });
     setBusy(false);
-    if (!ack.ok || !ack.data) return show('Could not find that');
+    if (!ack.ok || !ack.data) return show(ack.error ?? 'Could not find that place');
     await lock(ack.data.restaurant);
   }
 
@@ -126,23 +123,17 @@ export function Selecting() {
 
       {path === 'manual' && (
         <div className="screen__actions">
-          <FormField label={pickFieldLabel(room?.decisionTopic)}>
-            <Input
-              variant="search"
-              icon={<Search />}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={
-                room?.decisionTopic?.trim()
-                  ? `Search or type your pick…`
-                  : 'Enter your champion pick…'
-              }
-              autoFocus
-            />
-          </FormField>
-          <Button variant="success" size="lg" disabled={busy} onClick={searchManual}>
-            {busy ? 'Finding…' : 'Lock it in'}
-          </Button>
+          <PlacesAutocomplete
+            emit={emit}
+            loc={loc}
+            disabled={busy}
+            onSelect={searchByPlaceId}
+            placeholder={
+              room?.decisionTopic?.trim()
+                ? `Search or type your ${pickFieldLabel(room.decisionTopic).toLowerCase()}…`
+                : 'Search restaurants…'
+            }
+          />
           <Button variant="ghost" disabled={busy} onClick={() => setPath('choose')}>
             Back
           </Button>
