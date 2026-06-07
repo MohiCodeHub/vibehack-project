@@ -4,7 +4,16 @@ import { playerColor } from './ui/utils.ts';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
-export function LeaderboardList({ players, youId }: { players: PlayerView[]; youId?: string }) {
+export function LeaderboardList({
+  players,
+  youId,
+  revealPicks = false,
+}: {
+  players: PlayerView[];
+  youId?: string;
+  /** Show each player's championed pick — only on the final reveal. */
+  revealPicks?: boolean;
+}) {
   const sorted = [...players].filter((p) => p.hasRestaurant).sort((a, b) => b.score - a.score);
 
   return (
@@ -22,7 +31,9 @@ export function LeaderboardList({ players, youId }: { players: PlayerView[]; you
           </span>
           <div className="lb-row__main">
             <p className="lb-row__name">{p.name}</p>
-            {p.restaurantName && <p className="lb-row__resto">Championing: {p.restaurantName}</p>}
+            {revealPicks && p.restaurantName && (
+              <p className="lb-row__resto">Championing: {p.restaurantName}</p>
+            )}
           </div>
           <span className="lb-row__score">{p.score}</span>
         </Motion.li>
