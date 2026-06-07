@@ -68,6 +68,40 @@ body {
   padding-top: var(--ds-space-4);
 }
 
+/* ===== Hero band ===== */
+/* Fills the dead space on lean screens (Home, Pick-your-pick "choose") by
+   centering the content group and anchoring the middle with an illustration,
+   mirroring how the lobby's players card anchors its center. */
+.hero-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--ds-space-6);
+}
+/* Inside a centered hero, actions sit with the group — not pinned to the bottom. */
+.hero-center .screen__actions {
+  margin-top: 0;
+}
+.hero-art {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+  padding: var(--ds-space-2) 0;
+}
+.hero-art svg {
+  width: min(80%, 300px);
+  height: auto;
+  filter: drop-shadow(5px 6px 0 rgba(0, 0, 0, 0.3));
+}
+@media (max-height: 680px) {
+  /* keep the art from crowding the CTAs on short viewports */
+  .hero-art svg {
+    width: min(56%, 220px);
+  }
+}
+
 /* ===== Logo ===== */
 .logo-wrap {
   text-align: center;
