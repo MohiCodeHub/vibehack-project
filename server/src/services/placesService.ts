@@ -182,6 +182,73 @@ function placeToRestaurant(p: any): Restaurant {
   };
 }
 
+export interface PlaceSuggestion {
+  placeId: string;
+  name: string;
+  description: string;
+}
+
+export async function autocompleteRestaurants(query: string, loc?: LatLng): Promise<PlaceSuggestion[]> {
+  if (USE_MOCKS) {
+    const matches = SAMPLE_RESTAURANTS
+      .filter((r) => r.name.toLowerCase().includes(query.toLowerCase()))
+      .map((r) => ({ placeId: r.id, name: r.name, description: r.address ?? DEFAULT_CITY }));
+    if (matches.length > 0) return matches;
+    // No sample restaurants matched — return a free-text fallback so the user
+    // can always confirm whatever they typed (mirrors resolveRestaurant() behaviour).
+    return [{ placeId: `ft_${slug(query)}`, name: query.trim(), description: 'Free text entry' }];
+  }
+  return autocompleteRestaurantsLive(query, loc);
+}
+
+async function autocompleteRestaurantsLive(query: string, loc?: LatLng): Promise<PlaceSuggestion[]> {
+  const key = process.env.PLACES_API_KEY!;
+  const body: Record<string, unknown> = { input: query };
+  if (loc) {
+    body.locationBias = { circle: { center: { latitude: loc.lat, longitude: loc.lng }, radius: 8000 } };
+  }
+  const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': key },
+    body: JSON.stringify(body),
+  });
+  const json = (await res.json()) as any;
+  return (json.suggestions ?? [])
+    .filter((s: any) => s.placePrediction)
+    .map((s: any) => ({
+      placeId: s.placePrediction.placeId,
+      name: s.placePrediction.structuredFormat?.mainText?.text ?? s.placePrediction.text?.text ?? '',
+      description: s.placePrediction.structuredFormat?.secondaryText?.text ?? '',
+    }));
+}
+
+export async function resolveRestaurantById(placeId: string): Promise<Restaurant> {
+  if (USE_MOCKS) {
+    const hit = SAMPLE_RESTAURANTS.find((r) => r.id === placeId);
+    if (hit) return withMapUrl(hit);
+    // Reconstruct a human-readable name from free-text placeIds (ft_<slug>).
+    const freetextName = placeId.startsWith('ft_')
+      ? placeId.slice(3).replace(/-+/g, ' ')
+      : placeId;
+    return withMapUrl({ id: placeId, name: freetextName, source: 'freetext' });
+  }
+  return resolveRestaurantByIdLive(placeId);
+}
+
+async function resolveRestaurantByIdLive(placeId: string): Promise<Restaurant> {
+  const key = process.env.PLACES_API_KEY!;
+  const res = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
+    headers: {
+      'X-Goog-Api-Key': key,
+      'X-Goog-FieldMask':
+        'id,displayName,formattedAddress,rating,priceLevel,googleMapsUri,primaryTypeDisplayName',
+    },
+  });
+  const p = (await res.json()) as any;
+  if (!p.id) throw new Error('Place not found');
+  return placeToRestaurant(p);
+}
+
 /** A random sample restaurant — used to give test bots a pick. Works offline. */
 export function randomSampleRestaurant(): Restaurant {
   const r = SAMPLE_RESTAURANTS[Math.floor(Math.random() * SAMPLE_RESTAURANTS.length)];

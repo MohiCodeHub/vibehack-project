@@ -24,7 +24,7 @@ import {
 import { tick, clearPhaseTimer } from './flow.ts';
 import { cleanName, cleanCode, cleanRestaurantName, cleanDecisionTopic } from './validate.ts';
 import { generateSwipeCards } from './services/aiService.ts';
-import { resolveRestaurant, candidatesForProfile, type LatLng } from './services/placesService.ts';
+import { resolveRestaurant, resolveRestaurantById, autocompleteRestaurants, candidatesForProfile, type LatLng } from './services/placesService.ts';
 
 /** Broadcast room state to everyone + each player's private slice. */
 export function broadcast(io: Server, room: Room): void {
@@ -154,9 +154,24 @@ export function registerHandlers(io: Server, socket: Socket): void {
     }
   });
 
-  socket.on('restaurant:search', async (payload: { name: string; loc?: LatLng }, cb: (a: Ack) => void) => {
+  socket.on('restaurant:autocomplete', async (payload: { query: string; loc?: LatLng }, cb: (a: Ack) => void) => {
     try {
-      const name = cleanRestaurantName(payload?.name);
+      const query = (payload?.query ?? '').trim();
+      if (!query) return cb(ok({ suggestions: [] }));
+      const suggestions = await autocompleteRestaurants(query, payload.loc);
+      cb(ok({ suggestions }));
+    } catch (e) {
+      cb(fail((e as Error).message));
+    }
+  });
+
+  socket.on('restaurant:search', async (payload: { name?: string; placeId?: string; loc?: LatLng }, cb: (a: Ack) => void) => {
+    try {
+      if (payload?.placeId) {
+        const r = await resolveRestaurantById(payload.placeId);
+        return cb(ok({ restaurant: r }));
+      }
+      const name = cleanRestaurantName(payload?.name ?? '');
       if (!name) return cb(fail('Type a restaurant name'));
       const r = await resolveRestaurant(name, payload.loc);
       cb(ok({ restaurant: r }));
