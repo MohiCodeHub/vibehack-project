@@ -131,3 +131,13 @@ export interface Ack<T = unknown> {
 
 export const OUTING_TYPES = ['Dinner'] as const;
 export type OutingType = (typeof OUTING_TYPES)[number];
+
+/**
+ * How many answers a voter must rank in a round, given how many answers are
+ * available to them (their own already excluded). Ranked top-3 normally, but with
+ * a small group there may be fewer than 3 to pick: 1 candidate → 1, 2 → 2, 3+ → 3.
+ * Single source of truth for server validation, the client UI, and bot voting.
+ */
+export function maxPicks(availableAnswers: number): number {
+  return Math.min(3, Math.max(0, availableAnswers));
+}

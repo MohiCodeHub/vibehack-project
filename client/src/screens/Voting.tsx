@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Vote, Check } from 'lucide-react';
 import { motion as Motion } from 'motion/react';
+import { maxPicks } from '@shared/types.ts';
 import { useGame, useMe } from '../lib/socket.tsx';
 import { useToast } from '../components/Toast.tsx';
 import { WaitingFor } from '../components/WaitingFor.tsx';
@@ -22,17 +23,19 @@ export function Voting() {
     [room?.voteCards, playerId],
   );
   const submitted = me?.hasVoted;
+  // How many to rank — fewer than 3 when the group is small (your own card excluded).
+  const need = maxPicks(cards.length);
 
   function toggle(authorId: string) {
     setRanked((cur) => {
       if (cur.includes(authorId)) return cur.filter((id) => id !== authorId);
-      if (cur.length >= 3) return cur;
+      if (cur.length >= need) return cur;
       return [...cur, authorId];
     });
   }
 
   async function submit() {
-    if (ranked.length === 0) return show('Pick at least one');
+    if (ranked.length !== need) return show(`Pick exactly ${need}`);
     setBusy(true);
     const ack = await emit('vote:submit', { ranked });
     setBusy(false);
@@ -64,7 +67,9 @@ export function Voting() {
           Round {(room?.round ?? 0) + 1} / {room?.totalRounds}
         </span>
         <h2 className="vote-round-prompt">{room?.roundPrompt}</h2>
-        <p className="phase-sub">Pick your top 3 in order. You can&apos;t vote for yourself.</p>
+        <p className="phase-sub">
+          {need === 1 ? 'Pick the best answer.' : `Rank your top ${need} in order.`} You can&apos;t vote for yourself.
+        </p>
       </div>
 
       <div className="vote-list">
@@ -94,17 +99,17 @@ export function Voting() {
 
       <div className="vote-footer">
         <div className="vote-rank-dots">
-          {[1, 2, 3].map((n) => (
+          {Array.from({ length: need }, (_, i) => i + 1).map((n) => (
             <div key={n} className={`vote-rank-dot${ranked.length >= n ? ' vote-rank-dot--filled' : ''}`}>
               {n}
             </div>
           ))}
         </div>
         <Button
-          variant={ranked.length === 0 || busy ? 'disabled' : 'success'}
+          variant={ranked.length !== need || busy ? 'disabled' : 'success'}
           size="sm"
           block={false}
-          disabled={busy || ranked.length === 0}
+          disabled={busy || ranked.length !== need}
           onClick={submit}
         >
           {busy ? 'Sending…' : 'CAST VOTE'} <Vote size={20} />

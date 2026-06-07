@@ -97,7 +97,13 @@ if (!inPhase(room, 'answering')) return;
 
 ---
 
-## 2. Voting integrity for ranked top-3 (`rooms.ts`)
+## 2. Voting integrity for ranked top-3 (`rooms.ts`) — ✅ implemented
+
+Done: a shared `maxPicks(availableAnswers)` in `shared/types.ts` (single source for server,
+client, and bots), strict server-side validation in `submitVote` (exact count, distinct, no
+self, real answers this round), and idempotent overwrite by `votes[round]`. The client now
+renders `need` rank dots and only enables CAST VOTE at the exact count. Verified by both
+simulation scripts. Original notes kept below for reference.
 
 Your voting model is ranked top 3 (🥇+3 / 🥈+2 / 🥉+1, no self-vote). This has subtle edge cases the original single-vote plan did not cover.
 

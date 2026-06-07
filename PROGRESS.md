@@ -9,9 +9,9 @@ Tick these off as we go. Tasks mirror the 11 sections in `plan.md`.
 - [ ] 1d. Phase guards on every socket handler
 
 ## 2. Voting integrity (ranked top-3)
-- [ ] 2a. `maxPicks(activeCount)` rule for 2 / 3 / 4+ players
-- [ ] 2b. Server-side vote validation (phase, count, distinct, no self, real answers)
-- [ ] 2c. Idempotent submission (overwrite, never double-count)
+- [x] 2a. `maxPicks` rule for 2 / 3 / 4+ players (shared, used server + client + bots)
+- [x] 2b. Server-side vote validation (phase, count, distinct, no self, real answers)
+- [x] 2c. Idempotent submission (overwrite, never double-count)
 
 ## 3. Input validation & safety
 - [ ] Validate name / restaurant / answer lengths + room code regex

@@ -9,6 +9,7 @@ import type {
   VoteCard,
   PrivateState,
 } from '../../shared/types.ts';
+import { maxPicks } from '../../shared/types.ts';
 import { generateQuestions, ROUND_PROMPTS } from './services/aiService.ts';
 
 export const TOTAL_ROUNDS = 3;
@@ -283,14 +284,32 @@ export function voteCardsForRound(room: Room, round: number): VoteCard[] {
   return cards;
 }
 
+/** How many answers this voter must rank this round (their own card excluded). */
+export function requiredPicks(room: Room, round: number, voterId: string): number {
+  const available = voteCardsForRound(room, round).filter((c) => c.authorId !== voterId).length;
+  return maxPicks(available);
+}
+
 export function submitVote(room: Room, playerId: string, rankedAuthorIds: string[]): { error?: string } {
   const p = room.players.get(playerId);
   if (!p) return { error: 'Player not found' };
   if (room.phase !== 'voting') return { error: 'Not voting phase' };
-  // Validate: up to 3, no self-vote, must be real authors this round.
-  const validIds = new Set(voteCardsForRound(room, room.round).map((c) => c.authorId));
-  const cleaned = rankedAuthorIds.filter((id) => validIds.has(id) && id !== playerId).slice(0, 3);
-  p.votes[room.round] = cleaned;
+
+  const picks = Array.isArray(rankedAuthorIds) ? rankedAuthorIds : [];
+  const need = requiredPicks(room, room.round, playerId);
+  const validIds = new Set(
+    voteCardsForRound(room, room.round)
+      .map((c) => c.authorId)
+      .filter((id) => id !== playerId),
+  );
+
+  // Strict, server-authoritative validation — never trust the client (2b).
+  if (picks.length !== need) return { error: `Pick exactly ${need}` };
+  if (new Set(picks).size !== picks.length) return { error: 'No duplicate picks' };
+  if (picks.includes(playerId)) return { error: "Can't vote for yourself" };
+  if (picks.some((id) => !validIds.has(id))) return { error: 'Invalid pick' };
+
+  p.votes[room.round] = picks; // keyed by round → re-submits overwrite, never double-count (2c)
   return {};
 }
 
