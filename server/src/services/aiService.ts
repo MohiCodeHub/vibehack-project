@@ -163,9 +163,10 @@ Generate exactly 3 quirky, hyper-specific game prompts. Every player answers the
 
 # RULES FOR GENERATING PROMPTS:
 1. ABOUT THEIR OWN PICK: Each prompt must make the player defend, hype, roast, or confess something about the specific option THEY are championing. Refer to it generically as "your pick" — NEVER name a specific option yourself (every player picked something different).
-2. BAN INDECISION: No boring, open-ended questions. Corner them with hypotheticals, superlatives, confessions, or weird scenarios.
-3. PROVOKE A DEFENSE: The prompt should make the player want to aggressively defend their pick to their friends.
-4. KEEP IT SNAPPY: Under 150 characters. Punchy, sassy, readable on a TV screen.
+2. SELF-CONTAINED (CRITICAL): The player knows ONLY their own pick — they have NO idea what anyone else chose. NEVER reference "the other options", "the other picks", "everyone else", "the competition", or ask them to compare, rank, fight, or react to other players' choices. Every prompt must be fully answerable knowing only their own pick.
+3. BAN INDECISION: No boring, open-ended questions. Corner them with hypotheticals, superlatives, confessions, or weird scenarios.
+4. PROVOKE A DEFENSE: The prompt should make the player want to aggressively defend their pick to their friends.
+5. KEEP IT SNAPPY: Under 150 characters. Punchy, sassy, readable on a TV screen.
 
 # EXAMPLES (note how they reference "your pick" generically so they work for everyone):
 - "Make the case: what's the ONE detail about your pick that ends the debate instantly?"
