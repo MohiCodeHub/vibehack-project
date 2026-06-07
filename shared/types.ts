@@ -102,6 +102,8 @@ export interface RoomView {
     playerName: string;
     restaurant: Restaurant;
   };
+  /** What the group is deciding on — set by host in lobby. Omitted when unset. */
+  decisionTopic?: string;
 }
 
 /** What a single client receives that is specific to *them*. */
@@ -119,6 +121,11 @@ export interface CreateRoomReq {
   outingType: string;
   playerName: string;
   playerId: string;
+  /** Optional custom decision topic (host may also set/update in lobby). */
+  decisionTopic?: string;
+}
+export interface SetDecisionTopicReq {
+  topic: string;
 }
 export interface JoinRoomReq {
   code: string;

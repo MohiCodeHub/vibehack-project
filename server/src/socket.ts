@@ -1,7 +1,7 @@
 // Socket.IO wiring: maps client events to the room engine and broadcasts state.
 
 import type { Server, Socket } from 'socket.io';
-import type { Ack, CreateRoomReq, JoinRoomReq, Restaurant, SwipeChoice } from '../../shared/types.ts';
+import type { Ack, CreateRoomReq, JoinRoomReq, Restaurant, SwipeChoice, SetDecisionTopicReq } from '../../shared/types.ts';
 import {
   createRoom,
   joinRoom,
@@ -15,13 +15,14 @@ import {
   resetToLobby,
   addBot,
   removeBot,
+  setDecisionTopic,
   destinationTaken,
   serializeRoom,
   privateStateFor,
   type Room,
 } from './rooms.ts';
 import { tick, clearPhaseTimer } from './flow.ts';
-import { cleanName, cleanCode, cleanRestaurantName } from './validate.ts';
+import { cleanName, cleanCode, cleanRestaurantName, cleanDecisionTopic } from './validate.ts';
 import { generateSwipeCards } from './services/aiService.ts';
 import { resolveRestaurant, candidatesForProfile, type LatLng } from './services/placesService.ts';
 
@@ -56,11 +57,12 @@ export function registerHandlers(io: Server, socket: Socket): void {
       const name = cleanName(req.playerName);
       if (!name) return cb(fail('Name required'));
       if (!req.playerId) return cb(fail('Missing player id'));
+      const topic = cleanDecisionTopic(req.decisionTopic);
       const room = createRoom(req.outingType || 'Dinner', {
         id: req.playerId,
         name,
         socketId: socket.id,
-      });
+      }, topic || undefined);
       socket.join(room.code);
       joinedCode = room.code;
       myPlayerId = req.playerId;
@@ -98,6 +100,16 @@ export function registerHandlers(io: Server, socket: Socket): void {
     if (res.error) return cb(fail(res.error));
     cb(ok());
     await tick(room); // bots lock their picks immediately
+    broadcast(io, room);
+  });
+
+  socket.on('room:setTopic', (payload: SetDecisionTopicReq, cb: (a: Ack) => void) => {
+    const room = joinedCode ? getRoom(joinedCode) : undefined;
+    if (!room || !myPlayerId) return cb(fail('Not in a room'));
+    const topic = cleanDecisionTopic(payload?.topic ?? '');
+    const res = setDecisionTopic(room, myPlayerId, topic);
+    if (res.error) return cb(fail(res.error));
+    cb(ok());
     broadcast(io, room);
   });
 

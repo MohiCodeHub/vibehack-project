@@ -16,6 +16,11 @@ export function cleanName(s: unknown): string {
   return cleanText(s, 20);
 }
 
+/** Custom decision topic shown in lobby (e.g. "Restaurant for dinner"). */
+export function cleanDecisionTopic(s: unknown): string {
+  return cleanText(s, 100);
+}
+
 /** Manually-typed restaurant name: 1–60 chars. */
 export function cleanRestaurantName(s: unknown): string {
   return cleanText(s, 60);

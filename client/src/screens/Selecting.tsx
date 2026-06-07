@@ -13,6 +13,11 @@ import { Countdown } from '../components/Countdown.tsx';
 
 type Path = 'choose' | 'manual' | 'swipe' | 'pick';
 
+function pickFieldLabel(decisionTopic?: string): string {
+  const topic = decisionTopic?.trim();
+  return topic || 'Your pick';
+}
+
 export function Selecting() {
   const { room, emit, priv } = useGame();
   const { show } = useToast();
@@ -56,7 +61,8 @@ export function Selecting() {
   }
 
   async function searchManual() {
-    if (!query.trim()) return show('Type a restaurant name');
+    const label = pickFieldLabel(room?.decisionTopic);
+    if (!query.trim()) return show(`Enter ${label.toLowerCase()}`);
     setBusy(true);
     const ack = await emit<{ restaurant: Restaurant }>('restaurant:search', { name: query.trim(), loc });
     setBusy(false);
@@ -120,13 +126,17 @@ export function Selecting() {
 
       {path === 'manual' && (
         <div className="screen__actions">
-          <FormField label="Restaurant name">
+          <FormField label={pickFieldLabel(room?.decisionTopic)}>
             <Input
               variant="search"
               icon={<Search />}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search restaurants…"
+              placeholder={
+                room?.decisionTopic?.trim()
+                  ? `Search or type your pick…`
+                  : 'Enter your champion pick…'
+              }
               autoFocus
             />
           </FormField>
