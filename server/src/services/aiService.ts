@@ -56,6 +56,54 @@ Use these axis ids in this order: vibe, adventure, pace, budget, volume.`;
   return MOCK_SWIPE_CARDS;
 }
 
+// ---- Place candidates (LLM-suggested real places for the swipe flow) ----
+
+export interface PlaceCandidate {
+  name: string;
+  category?: string;
+  priceLevel?: number; // 1-4
+  rating?: number; // 0-5
+  area?: string; // neighbourhood/area within the city
+}
+
+function toPlaceCandidate(x: unknown): PlaceCandidate | null {
+  if (!x || typeof x !== 'object') return null;
+  const o = x as Record<string, unknown>;
+  const name = typeof o.name === 'string' ? o.name.trim() : '';
+  if (!name) return null;
+  const num = (v: unknown) => (typeof v === 'number' && isFinite(v) ? v : undefined);
+  return {
+    name: name.slice(0, 60),
+    category: typeof o.category === 'string' ? o.category.slice(0, 40) : undefined,
+    priceLevel: num(o.priceLevel),
+    rating: num(o.rating),
+    area: typeof o.area === 'string' ? o.area.slice(0, 60) : undefined,
+  };
+}
+
+/**
+ * Suggest real, varied places in `city` matching a free-text preference string.
+ * Returns null when AI is mocked or on failure, so the caller can fall back.
+ */
+export async function generatePlaceCandidates(prefs: string, city: string, count = 4): Promise<PlaceCandidate[] | null> {
+  if (USE_MOCKS) return null;
+  try {
+    const prompt = `Suggest exactly ${count} real, well-known restaurants in ${city} that match these preferences: ${prefs}.
+Prefer genuinely popular ${city} spots, and vary the cuisines. Return ONLY JSON of the form
+{"places": [{"name": "...", "category": "cuisine", "priceLevel": 1, "rating": 4.5, "area": "neighbourhood"}]}
+where priceLevel is 1-4 and rating is 0-5.`;
+    const arr = firstArray(await llmJson(prompt, { attempts: 2, timeoutMs: LLM_TIMEOUT_MS }));
+    if (arr) {
+      const places = arr.map(toPlaceCandidate).filter((p): p is PlaceCandidate => p !== null);
+      if (places.length >= 1) return places.slice(0, count);
+    }
+    return null;
+  } catch (err) {
+    console.warn('[aiService] generatePlaceCandidates failed:', (err as Error).message);
+    return null;
+  }
+}
+
 // ---- Round prompts (chaotic, category-aware game-show prompts) ----
 //
 // Three prompts are generated PER ROOM from the outing category (not per player), so

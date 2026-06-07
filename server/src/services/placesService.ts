@@ -2,6 +2,7 @@
 // Set USE_MOCKS=true (default when no PLACES_API_KEY) to run fully offline.
 
 import type { Restaurant, SwipeChoice } from '../../../shared/types.ts';
+import { generatePlaceCandidates, type PlaceCandidate } from './aiService.ts';
 
 const USE_MOCKS = process.env.USE_MOCKS === 'true' || !process.env.PLACES_API_KEY;
 const DEFAULT_CITY = process.env.DEFAULT_CITY || 'San Francisco';
@@ -49,16 +50,51 @@ export async function resolveRestaurant(name: string, loc?: LatLng): Promise<Res
 
 /**
  * Given a player's swipe profile, return 3-4 candidate restaurants.
- * In mock mode we score the sample set against the swipe choices.
+ * Real Google Places when a key is set; otherwise LLM-suggested real places in DEFAULT_CITY
+ * (uses the OpenAI key); only if that's unavailable do we fall back to the scored sample set.
  */
 export async function candidatesForProfile(choices: SwipeChoice[], loc?: LatLng): Promise<Restaurant[]> {
-  if (USE_MOCKS) {
-    const scored = SAMPLE_RESTAURANTS.map((r) => ({ r, score: scoreAgainstProfile(r, choices) }));
-    scored.sort((a, b) => b.score - a.score);
-    // Add a little spread so it isn't always the same top items for identical swipes.
-    return scored.slice(0, 4).map((s) => withMapUrl(s.r));
-  }
-  return candidatesForProfileLive(choices, loc);
+  if (!USE_MOCKS) return candidatesForProfileLive(choices, loc);
+
+  // No Places key → ask the LLM for real places in the default city matching the swipe profile.
+  const llm = await generatePlaceCandidates(describeProfile(choices), DEFAULT_CITY, 4);
+  if (llm && llm.length) return llm.map((p) => candidateToRestaurant(p));
+
+  // Last resort: score the built-in samples.
+  const scored = SAMPLE_RESTAURANTS.map((r) => ({ r, score: scoreAgainstProfile(r, choices) }));
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 4).map((s) => withMapUrl(s.r));
+}
+
+/** Turn a swipe profile into a short natural-language preference string for the LLM. */
+function describeProfile(choices: SwipeChoice[]): string {
+  const pick = (id: string) => choices.find((c) => c.cardId.includes(id))?.pick;
+  const parts: string[] = [];
+  if (pick('budget') === 'left') parts.push('affordable');
+  else if (pick('budget') === 'right') parts.push('a splurge');
+  if (pick('vibe') === 'right') parts.push('fancy / upscale');
+  else if (pick('vibe') === 'left') parts.push('casual & comfy');
+  if (pick('adventure') === 'right') parts.push('adventurous / unique cuisine');
+  else if (pick('adventure') === 'left') parts.push('familiar favourites');
+  if (pick('pace') === 'left') parts.push('quick');
+  else if (pick('pace') === 'right') parts.push('long & lingering');
+  if (pick('volume') === 'right') parts.push('lively & loud');
+  else if (pick('volume') === 'left') parts.push('quiet & chill');
+  return parts.length ? parts.join(', ') : 'a great all-rounder';
+}
+
+/** Map an LLM place suggestion into a Restaurant (with a Google Maps search link). */
+function candidateToRestaurant(p: PlaceCandidate): Restaurant {
+  const address = p.area ? `${p.area}, ${DEFAULT_CITY}` : DEFAULT_CITY;
+  return withMapUrl({
+    id: `ai_${slug(p.name)}`,
+    name: p.name,
+    category: p.category,
+    priceLevel: p.priceLevel,
+    rating: p.rating,
+    address,
+    source: 'places',
+  });
 }
 
 // ---- Mock scoring heuristics ----
