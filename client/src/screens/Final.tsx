@@ -98,7 +98,7 @@ export function Final() {
             <h3 className="phase-title" style={{ fontSize: 'var(--ds-text-xl)', marginBottom: 'var(--ds-space-4)' }}>
               Final standings
             </h3>
-            <LeaderboardList players={room.players} youId={me?.id} />
+            <LeaderboardList players={room.players} youId={me?.id} revealPicks />
           </div>
 
           <div className="final-actions">
