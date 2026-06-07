@@ -54,13 +54,18 @@ export async function resolveRestaurant(name: string, loc?: LatLng): Promise<Res
  * back to the scored sample set.
  */
 export async function candidatesForProfile(choices: SwipeChoice[], topic: string, loc?: LatLng): Promise<Restaurant[]> {
-  if (!USE_MOCKS) return candidatesForProfileLive(choices, loc);
-
-  // No Places key → ask the LLM for topic-appropriate options matching the swipe profile.
+  // The decision TOPIC is what should drive the options (dinner → venues, "which movie" →
+  // titles, "weekend trip" → destinations). That topic-awareness lives in the LLM, so it is the
+  // primary source whenever AI is configured — regardless of whether a Google Places key is set.
+  // (Previously, having a Places key forced candidatesForProfileLive, a hardcoded "restaurant"
+  // search that ignored the topic, so any deploy with PLACES_API_KEY was stuck on restaurants for
+  // every outing type while local — which has no key — worked fine.)
   const llm = await generateCandidates(topic, DEFAULT_CITY, describeProfile(choices), 4);
   if (llm && llm.length) return llm.map((c) => candidateToRestaurant(c));
 
-  // Last resort (only if the LLM is down): the scored built-in samples.
+  // LLM unavailable (AI mocked, or every attempt failed). With a Places key, fall back to a live
+  // nearby search; otherwise use the scored built-in samples so the game still works offline.
+  if (!USE_MOCKS) return candidatesForProfileLive(choices, loc);
   return mockCandidatesForProfile(choices);
 }
 
