@@ -14,7 +14,8 @@
     "build": "npm run build:client",
     "build:client": "vite build --config client/vite.config.ts",
     "start": "cross-env NODE_ENV=production tsx server/src/index.ts",
-    "typecheck": "tsc -p server/tsconfig.json --noEmit && tsc -p client/tsconfig.json --noEmit"
+    "typecheck": "tsc -p server/tsconfig.json --noEmit && tsc -p client/tsconfig.json --noEmit",
+    "test": "node --import tsx --test server/src/services/placesService.test.ts client/src/components/PlacesAutocomplete.test.ts"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",
