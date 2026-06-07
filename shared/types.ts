@@ -37,6 +37,12 @@ export interface SwipeChoice {
   cardId: string;
   /** Which side the player picked. */
   pick: 'left' | 'right';
+  /** The human-readable option the player chose — used for category-agnostic matching. */
+  choice?: string;
+  /** The trade-off axis label (e.g. "Energy"), for richer LLM context. */
+  axis?: string;
+  /** The option the player rejected (the other side). */
+  rejected?: string;
 }
 
 /** One personalized comedic question for a player. */
@@ -93,6 +99,8 @@ export interface RoomView {
   deadlineTs: number | null;
   /** The shared prompt template for the current voting round. */
   roundPrompt?: string;
+  /** A snarky one-line host quip shown with the current round's prompt. */
+  roundSnark?: string;
   /** Answer cards for the current voting round (own card not votable). */
   voteCards?: VoteCard[];
   /** The winning restaurant, present when phase === 'final'. */

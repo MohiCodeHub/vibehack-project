@@ -181,9 +181,42 @@ The Places resolution step can short-circuit duplicates earlier by resolving to 
 
 ---
 
-## 4. AI service hardening (`aiService.ts`)
+## 4. AI service hardening (`aiService.ts`) — ✅ implemented
 
-The biggest hidden risk: a live LLM call hanging or returning malformed JSON during the demo. `USE_MOCKS=true` saves you offline; the live path needs the same belt-and-braces.
+Done: every live call is wrapped with an 8s `AbortController` timeout + try/catch + mock
+fallback (4a); questions are pre-generated at lock time via `ensureQuestions` and cached on
+the player, so answering starts instantly (4b); responses go through `stripFences` →
+`parseJsonLoose` → `firstArray` with strict shape validation (4c). **Provider support added
+per the user's choice:** `LLM_PROVIDER=openai` (default, with JSON mode) or `anthropic`,
+selected by env; prompts now ask for a `{key:[...]}` object for reliable parsing. Verified
+live (OpenAI key → 0 fallbacks across runs), with a bad key (3 clean fallbacks, game still
+completes), and offline (mocks). Original notes kept below for reference.
+
+**Update — reliability (per user):** default OpenAI model is now **gpt-4o**, and every live
+LLM call **retries 3×** (12s timeout each) before giving up. Round-prompt generation then
+falls back to the **generic** mock prompts (written about "your pick", so they fit any place
+or outing type and never look dinner-specific) — so a live failure is logically negligible
+*and* the game can never hang. Verified: real key → 0 fallbacks; bad key → 3 retries → generic
+mock → game still completes.
+
+**Update — round-prompt model (per user request):** question generation moved from
+per-player/per-restaurant to **3 shared, category-based prompts per room** (`generateRoundPrompts`
+using a chaotic game-show-host system prompt keyed on `outingType`). Each prompt carries a
+`host_snark` quip now shown under the voting header (`RoomView.roundSnark`). Prompts are
+pre-generated once at `room:start` (`ensureRoomPrompts`) and copied to every player at
+`beginAnswering`. This also fixes a prior mismatch where players answered personalized
+questions but voting showed a single shared header. NOTE: the new prompts ask players to name
+an actionable place/thing, which overlaps the "champion a restaurant" selecting step and the
+"winner = champion's restaurant" rule — a game-flow decision to revisit with the outing-type
+feature.
+
+**DONE — "defend your pick" prompts (defense-style, shared):** the round-prompt system prompt
+was reframed so the 3 shared prompts make each player defend/hype/roast **their own
+championed pick** ("your pick", never naming a specific option), keyed on the category
+`decisionTopic || outingType`. Mock fallbacks reframed to match; swipe cards also use
+`decisionTopic || outingType`. Verified live across topics (Dinner, Movie) + sims.
+**Dropped (user changed their mind):** the "show You're championing [Place]" cue on the
+Answering screen was decided against — not implemented.
 
 ### 4a. Wrap every call with timeout + try/catch + fallback to mock
 The mock is not just a dev convenience; it is your runtime fallback. Restructure so the live path is wrapped:

@@ -141,13 +141,15 @@ export function registerHandlers(io: Server, socket: Socket): void {
     const { cb } = args(a, b);
     const room = joinedCode ? getRoom(joinedCode) : undefined;
     if (!room) return cb(fail('Not in a room'));
-    const cards = await generateSwipeCards(room.outingType);
+    const cards = await generateSwipeCards(room.decisionTopic || room.outingType);
     cb(ok({ cards }));
   });
 
   socket.on('swipe:candidates', async (payload: { choices: SwipeChoice[]; loc?: LatLng }, cb: (a: Ack) => void) => {
     try {
-      const candidates = await candidatesForProfile(payload.choices ?? [], payload.loc);
+      const room = joinedCode ? getRoom(joinedCode) : undefined;
+      const topic = room ? room.decisionTopic || room.outingType : 'Dinner';
+      const candidates = await candidatesForProfile(payload.choices ?? [], topic, payload.loc);
       cb(ok({ candidates }));
     } catch (e) {
       cb(fail((e as Error).message));
@@ -156,8 +158,8 @@ export function registerHandlers(io: Server, socket: Socket): void {
 
   socket.on('restaurant:autocomplete', async (payload: { query: string; loc?: LatLng }, cb: (a: Ack) => void) => {
     try {
-      const query = (payload?.query ?? '').trim();
-      if (!query) return cb(ok({ suggestions: [] }));
+      const query = cleanRestaurantName(payload?.query ?? '');
+      if (query.length < 2) return cb(ok({ suggestions: [] }));
       const suggestions = await autocompleteRestaurants(query, payload.loc);
       cb(ok({ suggestions }));
     } catch (e) {

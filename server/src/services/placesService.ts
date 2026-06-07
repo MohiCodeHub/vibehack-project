@@ -2,9 +2,13 @@
 // Set USE_MOCKS=true (default when no PLACES_API_KEY) to run fully offline.
 
 import type { Restaurant, SwipeChoice } from '../../../shared/types.ts';
+import { generateCandidates, type Candidate } from './aiService.ts';
 
 const USE_MOCKS = process.env.USE_MOCKS === 'true' || !process.env.PLACES_API_KEY;
 const DEFAULT_CITY = process.env.DEFAULT_CITY || 'San Francisco';
+const PLACES_TIMEOUT_MS = Number(process.env.PLACES_TIMEOUT_MS ?? 5000);
+const AUTOCOMPLETE_FIELD_MASK =
+  'suggestions.placePrediction.placeId,suggestions.placePrediction.structuredFormat.mainText.text,suggestions.placePrediction.structuredFormat.secondaryText.text,suggestions.placePrediction.text.text';
 
 export interface LatLng {
   lat: number;
@@ -38,27 +42,73 @@ export async function resolveRestaurant(name: string, loc?: LatLng): Promise<Res
     // Try to fuzzy-match the typed name against the sample set for a nicer demo.
     const hit = SAMPLE_RESTAURANTS.find((r) => r.name.toLowerCase().includes(name.trim().toLowerCase()));
     if (hit) return withMapUrl(hit);
-    return withMapUrl({
-      id: `ft_${slug(name)}`,
-      name: name.trim(),
-      source: 'freetext',
-    });
+    return withMapUrl(freeTextRestaurant(name));
   }
   return resolveRestaurantLive(name, loc);
 }
 
 /**
- * Given a player's swipe profile, return 3-4 candidate restaurants.
- * In mock mode we score the sample set against the swipe choices.
+ * Given a player's swipe profile and the decision topic, return 3-4 candidate options.
+ * Real Google Places when a key is set; otherwise LLM-suggested options for the topic in
+ * DEFAULT_CITY (specific places or general activities); only if that's unavailable do we fall
+ * back to the scored sample set.
  */
-export async function candidatesForProfile(choices: SwipeChoice[], loc?: LatLng): Promise<Restaurant[]> {
-  if (USE_MOCKS) {
-    const scored = SAMPLE_RESTAURANTS.map((r) => ({ r, score: scoreAgainstProfile(r, choices) }));
-    scored.sort((a, b) => b.score - a.score);
-    // Add a little spread so it isn't always the same top items for identical swipes.
-    return scored.slice(0, 4).map((s) => withMapUrl(s.r));
+export async function candidatesForProfile(choices: SwipeChoice[], topic: string, loc?: LatLng): Promise<Restaurant[]> {
+  if (!USE_MOCKS) return candidatesForProfileLive(choices, loc);
+
+  // No Places key → ask the LLM for topic-appropriate options matching the swipe profile.
+  const llm = await generateCandidates(topic, DEFAULT_CITY, describeProfile(choices), 4);
+  if (llm && llm.length) return llm.map((c) => candidateToRestaurant(c));
+
+  // Last resort (only if the LLM is down): the scored built-in samples.
+  return mockCandidatesForProfile(choices);
+}
+
+/**
+ * Turn a swipe profile into a preference string. When the axis + rejected side are present we
+ * send the full trade-off context ("Energy → Relaxing (over Active)"); otherwise just the choice.
+ */
+function describeProfile(choices: SwipeChoice[]): string {
+  const parts = choices
+    .map((c) => {
+      const chosen = c.choice?.trim();
+      if (!chosen) return null;
+      if (c.axis?.trim() && c.rejected?.trim()) return `${c.axis.trim()} → ${chosen} (over ${c.rejected.trim()})`;
+      return chosen;
+    })
+    .filter((x): x is string => !!x);
+  return parts.length ? parts.join('; ') : 'a great all-rounder';
+}
+
+/**
+ * Map an LLM candidate into a Restaurant-shaped option. Location-based picks (venues,
+ * destinations) get a Google Maps link; abstract picks (movie titles, etc.) get a plain web
+ * search link and no made-up address.
+ */
+function candidateToRestaurant(c: Candidate): Restaurant {
+  const loc = c.location?.trim();
+  if (c.locationBased) {
+    const query = encodeURIComponent(loc ? `${c.name} ${loc}` : c.name);
+    return {
+      id: `ai_${slug(c.name)}`,
+      name: c.name,
+      category: c.category,
+      priceLevel: c.priceLevel,
+      rating: c.rating,
+      address: loc,
+      source: 'places',
+      mapUrl: `https://www.google.com/maps/search/?api=1&query=${query}`,
+    };
   }
-  return candidatesForProfileLive(choices, loc);
+  // Abstract pick (e.g. a movie title) — no location; link to a web search instead of a map.
+  return {
+    id: `ai_${slug(c.name)}`,
+    name: c.name,
+    category: c.category,
+    rating: c.rating,
+    source: 'freetext',
+    mapUrl: `https://www.google.com/search?q=${encodeURIComponent(c.name)}`,
+  };
 }
 
 // ---- Mock scoring heuristics ----
@@ -99,7 +149,36 @@ function scoreAgainstProfile(r: Restaurant, choices: SwipeChoice[]): number {
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
+function freeTextRestaurant(name: string): Restaurant {
+  return {
+    id: `ft_${slug(name)}`,
+    name: name.trim(),
+    source: 'freetext',
+  };
+}
+
+function mockCandidatesForProfile(choices: SwipeChoice[]): Restaurant[] {
+  const scored = SAMPLE_RESTAURANTS.map((r) => ({ r, score: scoreAgainstProfile(r, choices) }));
+  scored.sort((a, b) => b.score - a.score);
+  // Add a little spread so it isn't always the same top items for identical swipes.
+  return scored.slice(0, 4).map((s) => withMapUrl(s.r));
+}
+
 // ---- Live implementations (Google Places). Only used when not mocking. ----
+
+async function placesFetchJson<T>(url: string, init: RequestInit): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), Number.isFinite(PLACES_TIMEOUT_MS) ? PLACES_TIMEOUT_MS : 5000);
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    if (!res.ok) {
+      throw new Error(`Google Places request failed with status ${res.status}`);
+    }
+    return (await res.json()) as T;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 async function resolveRestaurantLive(name: string, loc?: LatLng): Promise<Restaurant> {
   const key = process.env.PLACES_API_KEY!;
@@ -110,7 +189,7 @@ async function resolveRestaurantLive(name: string, loc?: LatLng): Promise<Restau
       : {}),
     maxResultCount: 1,
   };
-  const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+  const json = await placesFetchJson<any>('https://places.googleapis.com/v1/places:searchText', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -119,11 +198,10 @@ async function resolveRestaurantLive(name: string, loc?: LatLng): Promise<Restau
         'places.id,places.displayName,places.formattedAddress,places.rating,places.priceLevel,places.googleMapsUri,places.primaryTypeDisplayName',
     },
     body: JSON.stringify(body),
-  });
-  const json = (await res.json()) as any;
+  }).catch(() => ({ places: [] }));
   const p = json.places?.[0];
   if (!p) {
-    return { id: `ft_${slug(name)}`, name: name.trim(), source: 'freetext' };
+    return freeTextRestaurant(name);
   }
   return placeToRestaurant(p);
 }
@@ -149,7 +227,7 @@ async function candidatesForProfileLive(choices: SwipeChoice[], loc?: LatLng): P
       : {}),
     maxResultCount: 4,
   };
-  const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+  const json = await placesFetchJson<any>('https://places.googleapis.com/v1/places:searchText', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -158,9 +236,9 @@ async function candidatesForProfileLive(choices: SwipeChoice[], loc?: LatLng): P
         'places.id,places.displayName,places.formattedAddress,places.rating,places.priceLevel,places.googleMapsUri,places.primaryTypeDisplayName',
     },
     body: JSON.stringify(body),
-  });
-  const json = (await res.json()) as any;
-  return (json.places ?? []).slice(0, 4).map(placeToRestaurant);
+  }).catch(() => ({ places: [] }));
+  const places = (json.places ?? []).slice(0, 4).map(placeToRestaurant);
+  return places.length > 0 ? places : mockCandidatesForProfile(choices);
 }
 
 function placeToRestaurant(p: any): Restaurant {
@@ -196,55 +274,62 @@ export async function autocompleteRestaurants(query: string, loc?: LatLng): Prom
     if (matches.length > 0) return matches;
     // No sample restaurants matched — return a free-text fallback so the user
     // can always confirm whatever they typed (mirrors resolveRestaurant() behaviour).
-    return [{ placeId: `ft_${slug(query)}`, name: query.trim(), description: 'Free text entry' }];
+    return [freeTextSuggestion(query)];
   }
   return autocompleteRestaurantsLive(query, loc);
 }
 
+function freeTextSuggestion(query: string): PlaceSuggestion {
+  return { placeId: `ft_${slug(query)}`, name: query.trim(), description: 'Free text entry' };
+}
+
 async function autocompleteRestaurantsLive(query: string, loc?: LatLng): Promise<PlaceSuggestion[]> {
   const key = process.env.PLACES_API_KEY!;
-  const body: Record<string, unknown> = { input: query };
+  const body: Record<string, unknown> = { input: loc ? query : `${query} ${DEFAULT_CITY}` };
   if (loc) {
     body.locationBias = { circle: { center: { latitude: loc.lat, longitude: loc.lng }, radius: 8000 } };
   }
-  const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+  const json = await placesFetchJson<any>('https://places.googleapis.com/v1/places:autocomplete', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': key },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': key,
+      'X-Goog-FieldMask': AUTOCOMPLETE_FIELD_MASK,
+    },
     body: JSON.stringify(body),
-  });
-  const json = (await res.json()) as any;
-  return (json.suggestions ?? [])
+  }).catch(() => ({ suggestions: [] }));
+  const suggestions = (json.suggestions ?? [])
     .filter((s: any) => s.placePrediction)
     .map((s: any) => ({
       placeId: s.placePrediction.placeId,
       name: s.placePrediction.structuredFormat?.mainText?.text ?? s.placePrediction.text?.text ?? '',
       description: s.placePrediction.structuredFormat?.secondaryText?.text ?? '',
     }));
+  return suggestions.length > 0 ? suggestions : [freeTextSuggestion(query)];
 }
 
 export async function resolveRestaurantById(placeId: string): Promise<Restaurant> {
+  if (placeId.startsWith('ft_')) {
+    const freetextName = placeId.slice(3).replace(/-+/g, ' ');
+    return withMapUrl({ id: placeId, name: freetextName, source: 'freetext' });
+  }
   if (USE_MOCKS) {
     const hit = SAMPLE_RESTAURANTS.find((r) => r.id === placeId);
     if (hit) return withMapUrl(hit);
-    // Reconstruct a human-readable name from free-text placeIds (ft_<slug>).
-    const freetextName = placeId.startsWith('ft_')
-      ? placeId.slice(3).replace(/-+/g, ' ')
-      : placeId;
-    return withMapUrl({ id: placeId, name: freetextName, source: 'freetext' });
+    return withMapUrl({ id: placeId, name: placeId, source: 'freetext' });
   }
   return resolveRestaurantByIdLive(placeId);
 }
 
 async function resolveRestaurantByIdLive(placeId: string): Promise<Restaurant> {
   const key = process.env.PLACES_API_KEY!;
-  const res = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
+  const p = await placesFetchJson<any>(`https://places.googleapis.com/v1/places/${placeId}`, {
     headers: {
       'X-Goog-Api-Key': key,
       'X-Goog-FieldMask':
         'id,displayName,formattedAddress,rating,priceLevel,googleMapsUri,primaryTypeDisplayName',
     },
   });
-  const p = (await res.json()) as any;
   if (!p.id) throw new Error('Place not found');
   return placeToRestaurant(p);
 }

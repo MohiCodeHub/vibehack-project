@@ -18,9 +18,10 @@ Tick these off as we go. Tasks mirror the 11 sections in `plan.md`.
 - [x] 3a. Case-insensitive duplicate destination prevention (humans + bots avoid dups)
 
 ## 4. AI service hardening
-- [ ] 4a. Timeout + try/catch + mock fallback on every LLM call
-- [ ] 4b. Pre-generate questions during `selecting`, cache on player
-- [ ] 4c. Defensive JSON parsing (strip fences, validate shape)
+- [x] 4a. Timeout (AbortController, 8s) + try/catch + mock fallback on every LLM call
+- [x] 4b. Pre-generate questions during `selecting`, cache on player (`ensureQuestions`)
+- [x] 4c. Defensive JSON parsing (strip fences, dig out array, validate shape)
+- [x] + OpenAI provider support (`LLM_PROVIDER`, JSON mode); Anthropic still supported
 
 ## 5. Places service hardening
 - [ ] Timeout on Places call (5s)
