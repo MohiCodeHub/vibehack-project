@@ -37,6 +37,8 @@ export interface SwipeChoice {
   cardId: string;
   /** Which side the player picked. */
   pick: 'left' | 'right';
+  /** The human-readable option the player chose — used for category-agnostic matching. */
+  choice?: string;
 }
 
 /** One personalized comedic question for a player. */

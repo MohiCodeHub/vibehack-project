@@ -16,12 +16,13 @@ const LLM_TIMEOUT_MS = 12000;
 
 // ---- Swipe cards ----
 
+// Generic, distinct trade-offs that fit any outing type (used offline / on fallback).
 const MOCK_SWIPE_CARDS: SwipeCard[] = [
-  { id: 'vibe', axis: 'Vibe', left: 'Casual & comfy', right: 'Fancy & dressed up' },
-  { id: 'adventure', axis: 'Menu', left: 'Familiar favorites', right: 'Bold & adventurous' },
-  { id: 'pace', axis: 'Pace', left: 'Quick bite', right: 'Long & lingering' },
-  { id: 'budget', axis: 'Budget', left: 'Keep it cheap', right: 'Splurge a little' },
-  { id: 'volume', axis: 'Energy', left: 'Quiet & chill', right: 'Loud & lively' },
+  { id: 'budget', axis: 'Budget', left: 'Keep it cheap', right: 'Treat ourselves' },
+  { id: 'energy', axis: 'Energy', left: 'Chill & low-key', right: 'Big & lively' },
+  { id: 'setting', axis: 'Setting', left: 'Cozy indoors', right: 'Out & about' },
+  { id: 'novelty', axis: 'Vibe', left: 'Familiar favourite', right: 'Something new' },
+  { id: 'time', axis: 'Time', left: 'Quick & easy', right: 'Make a day of it' },
 ];
 
 /** True if x looks like a usable SwipeCard. */
@@ -40,10 +41,9 @@ function isSwipeCard(x: unknown): x is SwipeCard {
 export async function generateSwipeCards(outingType: string): Promise<SwipeCard[]> {
   if (USE_MOCKS) return MOCK_SWIPE_CARDS;
   try {
-    const prompt = `Generate exactly 5 binary "this or that" trade-off cards to help a group decide on their ${outingType} outing.
-Return ONLY JSON of the form {"cards": [{"id": "...", "axis": "...", "left": "...", "right": "..."}]} where
-id is a short slug, axis is a 1-2 word label, and left/right are short options.
-Use these axis ids in this order: vibe, adventure, pace, budget, volume.`;
+    const prompt = `The group is deciding on: "${outingType}". Generate exactly 5 binary "this or that" trade-off cards that help them narrow down what to pick.
+Rules: each card must be a DISTINCT dimension — no two cards should overlap or ask the same thing — and every card must make sense for "${outingType}". Choose whichever dimensions fit best (e.g. budget, energy level, indoor vs outdoor, familiar vs adventurous, quick vs all-day, small vs big group, chill vs wild).
+Return ONLY JSON of the form {"cards": [{"id": "short-slug", "axis": "1-2 word label", "left": "short option", "right": "short option"}]} with exactly 5 distinct cards.`;
     const arr = firstArray(await llmJson(prompt));
     if (arr) {
       const cards = arr.filter(isSwipeCard);
@@ -56,17 +56,23 @@ Use these axis ids in this order: vibe, adventure, pace, budget, volume.`;
   return MOCK_SWIPE_CARDS;
 }
 
-// ---- Place candidates (LLM-suggested real places for the swipe flow) ----
+// ---- Candidates (LLM-suggested options for the swipe flow) ----
+//
+// Options are keyed on the DECISION TOPIC, not hardcoded to restaurants: for "Dinner" you get
+// specific restaurants; for "Weekend activity" you get a mix of activities ("Go to the cinema")
+// and specific venues ("Alton Towers"). `specific` flags whether it's a named place.
 
-export interface PlaceCandidate {
+export interface Candidate {
   name: string;
   category?: string;
+  /** True for a specific named place (gets an address); false for a general activity. */
+  specific?: boolean;
+  area?: string; // neighbourhood/area within the city (specific places only)
   priceLevel?: number; // 1-4
   rating?: number; // 0-5
-  area?: string; // neighbourhood/area within the city
 }
 
-function toPlaceCandidate(x: unknown): PlaceCandidate | null {
+function toCandidate(x: unknown): Candidate | null {
   if (!x || typeof x !== 'object') return null;
   const o = x as Record<string, unknown>;
   const name = typeof o.name === 'string' ? o.name.trim() : '';
@@ -75,31 +81,33 @@ function toPlaceCandidate(x: unknown): PlaceCandidate | null {
   return {
     name: name.slice(0, 60),
     category: typeof o.category === 'string' ? o.category.slice(0, 40) : undefined,
+    specific: o.specific === true,
+    area: typeof o.area === 'string' ? o.area.slice(0, 60) : undefined,
     priceLevel: num(o.priceLevel),
     rating: num(o.rating),
-    area: typeof o.area === 'string' ? o.area.slice(0, 60) : undefined,
   };
 }
 
 /**
- * Suggest real, varied places in `city` matching a free-text preference string.
+ * Suggest varied options for a decision topic, matching a free-text preference string.
+ * Options may be specific named places OR general activities — whatever fits the topic.
  * Returns null when AI is mocked or on failure, so the caller can fall back.
  */
-export async function generatePlaceCandidates(prefs: string, city: string, count = 4): Promise<PlaceCandidate[] | null> {
+export async function generateCandidates(topic: string, city: string, prefs: string, count = 4): Promise<Candidate[] | null> {
   if (USE_MOCKS) return null;
   try {
-    const prompt = `Suggest exactly ${count} real, well-known restaurants in ${city} that match these preferences: ${prefs}.
-Prefer genuinely popular ${city} spots, and vary the cuisines. Return ONLY JSON of the form
-{"places": [{"name": "...", "category": "cuisine", "priceLevel": 1, "rating": 4.5, "area": "neighbourhood"}]}
-where priceLevel is 1-4 and rating is 0-5.`;
+    const prompt = `The group is deciding on: "${topic}". Suggest exactly ${count} specific, varied options they could actually do${city ? `, in or around ${city}` : ''}, matching these preferences: ${prefs}.
+Options can be a specific named place (e.g. a particular restaurant, cinema, or venue) OR a general activity (e.g. "Go to the cinema", "Visit a theme park", "Mini golf") — whatever genuinely fits "${topic}". Mix them where sensible and vary the options.
+For a specific named place, set "specific": true and include an "area" (neighbourhood). For a general activity, set "specific": false and omit area.
+Return ONLY JSON of the form {"options": [{"name": "...", "category": "short label", "specific": true, "area": "neighbourhood", "priceLevel": 1, "rating": 4.5}]} where priceLevel is 1-4 and rating 0-5 (omit price/rating for general activities).`;
     const arr = firstArray(await llmJson(prompt, { attempts: 2, timeoutMs: LLM_TIMEOUT_MS }));
     if (arr) {
-      const places = arr.map(toPlaceCandidate).filter((p): p is PlaceCandidate => p !== null);
-      if (places.length >= 1) return places.slice(0, count);
+      const options = arr.map(toCandidate).filter((c): c is Candidate => c !== null);
+      if (options.length >= 1) return options.slice(0, count);
     }
     return null;
   } catch (err) {
-    console.warn('[aiService] generatePlaceCandidates failed:', (err as Error).message);
+    console.warn('[aiService] generateCandidates failed:', (err as Error).message);
     return null;
   }
 }

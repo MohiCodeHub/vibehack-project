@@ -147,7 +147,9 @@ export function registerHandlers(io: Server, socket: Socket): void {
 
   socket.on('swipe:candidates', async (payload: { choices: SwipeChoice[]; loc?: LatLng }, cb: (a: Ack) => void) => {
     try {
-      const candidates = await candidatesForProfile(payload.choices ?? [], payload.loc);
+      const room = joinedCode ? getRoom(joinedCode) : undefined;
+      const topic = room ? room.decisionTopic || room.outingType : 'Dinner';
+      const candidates = await candidatesForProfile(payload.choices ?? [], topic, payload.loc);
       cb(ok({ candidates }));
     } catch (e) {
       cb(fail((e as Error).message));
