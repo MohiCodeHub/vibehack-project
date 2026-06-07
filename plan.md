@@ -203,6 +203,15 @@ an actionable place/thing, which overlaps the "champion a restaurant" selecting 
 "winner = champion's restaurant" rule — a game-flow decision to revisit with the outing-type
 feature.
 
+**PENDING (agreed, not yet implemented) — "defend your pick" prompts + place reminder:**
+Keep shared prompts (no per-place generation), but (1) reframe the round-prompt system prompt
+to be *defense-style* so each player answers **in relation to the place they're championing**
+(e.g. "Make the case: what's the one thing about your pick that ends the debate?"), and
+(2) show "You're championing **[Place]**" on the Answering screen as a cue. This reconciles
+shared prompts with the "winner's place wins" rule. ALSO: feed the new `decisionTopic`
+(host-set custom topic from main) into `generateRoundPrompts` as the category, falling back to
+`outingType`. To do after merging main.
+
 ### 4a. Wrap every call with timeout + try/catch + fallback to mock
 The mock is not just a dev convenience; it is your runtime fallback. Restructure so the live path is wrapped:
 
