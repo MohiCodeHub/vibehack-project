@@ -848,6 +848,35 @@ body {
   min-width: 0;
 }
 
+/* ===== Decision topic (lobby) ===== */
+.decision-topic {
+  margin: 0;
+  padding: var(--ds-space-4) var(--ds-space-5);
+  text-align: center;
+  background: color-mix(in srgb, var(--ds-color-warning) 18%, transparent);
+  border: var(--ds-border-width-sm) solid var(--ds-color-border-strong);
+  box-shadow: var(--ds-shadow-chunky-sm);
+  border-radius: var(--ds-radius-xl);
+  line-height: var(--ds-leading-snug);
+}
+
+.decision-topic__icon {
+  margin-right: var(--ds-space-1);
+}
+
+.decision-topic__label {
+  font-family: var(--ds-font-header);
+  font-size: var(--ds-text-lg);
+  letter-spacing: var(--ds-tracking-normal);
+  color: var(--ds-color-warning);
+}
+
+.decision-topic__text {
+  font-family: var(--ds-font-sketch);
+  font-size: var(--ds-text-xl);
+  color: var(--ds-color-foreground);
+}
+
 /* ===== Phase countdown (Section 1) ===== */
 
 .countdown {

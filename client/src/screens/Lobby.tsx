@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { User } from 'lucide-react';
 import { useGame, useMe } from '../lib/socket.tsx';
 import { useToast } from '../components/Toast.tsx';
@@ -5,18 +6,37 @@ import { clearLastRoom } from '../lib/identity.ts';
 import { PlayerTile, PlayerTileGhost } from '../components/PlayerRow.tsx';
 import { Screen } from '../components/layout/Screen.tsx';
 import { RoomCodeBanner } from '../components/layout/RoomCodeBanner.tsx';
-import { Button, Card, Badge } from '../components/ui';
+import { DecisionTopicDisplay } from '../components/layout/DecisionTopicDisplay.tsx';
+import { Button, Card, Badge, FormField, Input } from '../components/ui';
 
 export function Lobby() {
   const { room, emit, setRoom } = useGame();
   const me = useMe();
   const { show } = useToast();
+  const [topicDraft, setTopicDraft] = useState('');
+  const savingTopic = useRef(false);
+
+  useEffect(() => {
+    setTopicDraft(room?.decisionTopic ?? '');
+  }, [room?.decisionTopic]);
+
   if (!room) return null;
 
   const isHost = me?.isHost;
   const connectedCount = room.players.filter((p) => p.connected).length;
   const botCount = room.players.filter((p) => p.isBot).length;
   const isFull = room.players.length >= 6;
+
+  async function saveTopic() {
+    if (!room) return;
+    const trimmed = topicDraft.trim();
+    if (trimmed === (room.decisionTopic ?? '')) return;
+    if (savingTopic.current) return;
+    savingTopic.current = true;
+    const ack = await emit('room:setTopic', { topic: trimmed });
+    savingTopic.current = false;
+    if (!ack.ok) show(ack.error ?? 'Could not save topic');
+  }
 
   async function start() {
     const ack = await emit('room:start');
@@ -41,6 +61,25 @@ export function Lobby() {
 
   return (
     <Screen className="lobby">
+      {isHost && (
+        <FormField
+          label="What are you undecided about?"
+          htmlFor="lobby-topic"
+          hint="Optional — everyone in the room will see this"
+        >
+          <Input
+            id="lobby-topic"
+            value={topicDraft}
+            maxLength={100}
+            placeholder="Restaurant for dinner, what movie to watch, weekend activity, etc."
+            onChange={(e) => setTopicDraft(e.target.value)}
+            onBlur={() => void saveTopic()}
+          />
+        </FormField>
+      )}
+
+      {room.decisionTopic && <DecisionTopicDisplay topic={room.decisionTopic} />}
+
       <RoomCodeBanner code={room.code} hint="Others tap Join Game and enter this code" />
 
       <Card variant="muted" padding="lg" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--ds-space-4)' }}>
