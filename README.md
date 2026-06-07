@@ -96,7 +96,7 @@ npm start           # production: serve API + built client from one process on $
 | `LLM_API_KEY`   | —                  | Anthropic key for swipe cards + comedic questions. Blank → AI mocked. |
 | `LLM_MODEL`     | `claude-haiku-4-5-20251001` | LLM model id. |
 | `PLACES_API_KEY`| —                  | Google Places API v1 key. Blank → places mocked. |
-| `DEFAULT_CITY`  | `San Francisco`    | Fallback location when a player denies geolocation. |
+| `DEFAULT_CITY`  | `London`           | Fallback location when a player denies geolocation. |
 | `PORT`          | `3001`             | HTTP/WebSocket port (platforms set this automatically). |
 
 Each service mocks **independently** — e.g. real AI questions + mocked places is fine.
@@ -121,7 +121,7 @@ A Blueprint is included ([`render.yaml`](render.yaml)):
    build `npm install`, start `npm start`, health check `/api/health`.
 2. Set env vars in the dashboard:
    - `USE_MOCKS=true` (or `false` + `LLM_API_KEY` / `PLACES_API_KEY` for real AI/Places)
-   - `DEFAULT_CITY` (e.g. `San Francisco`)
+   - `DEFAULT_CITY` (e.g. `London`)
    - `CLIENT_ORIGIN` = your Vercel URL, e.g. `https://where-to.vercel.app` (no trailing slash;
      `*.vercel.app` preview deploys are allowed automatically)
 3. Note the service URL, e.g. `https://where-to-api.onrender.com`.

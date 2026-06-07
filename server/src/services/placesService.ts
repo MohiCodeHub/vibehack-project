@@ -5,7 +5,7 @@ import type { Restaurant, SwipeChoice } from '../../../shared/types.ts';
 import { generateCandidates, type Candidate } from './aiService.ts';
 
 const USE_MOCKS = process.env.USE_MOCKS === 'true' || !process.env.PLACES_API_KEY;
-const DEFAULT_CITY = process.env.DEFAULT_CITY || 'San Francisco';
+const DEFAULT_CITY = process.env.DEFAULT_CITY || 'London';
 const PLACES_TIMEOUT_MS = Number(process.env.PLACES_TIMEOUT_MS ?? 5000);
 const AUTOCOMPLETE_FIELD_MASK =
   'suggestions.placePrediction.placeId,suggestions.placePrediction.structuredFormat.mainText.text,suggestions.placePrediction.structuredFormat.secondaryText.text,suggestions.placePrediction.text.text';

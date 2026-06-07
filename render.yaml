@@ -14,7 +14,7 @@ services:
       - key: USE_MOCKS
         value: "true"
       - key: DEFAULT_CITY
-        value: San Francisco
+        value: London
       # Your Vercel production origin (no trailing slash). *.vercel.app previews
       # are allowed automatically. Set this in the Render dashboard.
       - key: CLIENT_ORIGIN
