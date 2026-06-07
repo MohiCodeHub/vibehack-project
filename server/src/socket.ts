@@ -15,11 +15,13 @@ import {
   resetToLobby,
   addBot,
   removeBot,
+  destinationTaken,
   serializeRoom,
   privateStateFor,
   type Room,
 } from './rooms.ts';
 import { tick, clearPhaseTimer } from './flow.ts';
+import { cleanName, cleanCode, cleanRestaurantName } from './validate.ts';
 import { generateSwipeCards } from './services/aiService.ts';
 import { resolveRestaurant, candidatesForProfile, type LatLng } from './services/placesService.ts';
 
@@ -51,10 +53,12 @@ export function registerHandlers(io: Server, socket: Socket): void {
 
   socket.on('room:create', async (req: CreateRoomReq, cb: (a: Ack) => void) => {
     try {
-      if (!req.playerName?.trim()) return cb(fail('Name required'));
+      const name = cleanName(req.playerName);
+      if (!name) return cb(fail('Name required'));
+      if (!req.playerId) return cb(fail('Missing player id'));
       const room = createRoom(req.outingType || 'Dinner', {
         id: req.playerId,
-        name: req.playerName.trim().slice(0, 20),
+        name,
         socketId: socket.id,
       });
       socket.join(room.code);
@@ -68,11 +72,14 @@ export function registerHandlers(io: Server, socket: Socket): void {
   });
 
   socket.on('room:join', (req: JoinRoomReq, cb: (a: Ack) => void) => {
-    if (!req.playerName?.trim()) return cb(fail('Name required'));
-    if (!req.code?.trim()) return cb(fail('Code required'));
-    const result = joinRoom(req.code, {
+    const name = cleanName(req.playerName);
+    if (!name) return cb(fail('Name required'));
+    const code = cleanCode(req.code);
+    if (!code) return cb(fail('Enter a 4-letter room code'));
+    if (!req.playerId) return cb(fail('Missing player id'));
+    const result = joinRoom(code, {
       id: req.playerId,
-      name: req.playerName.trim().slice(0, 20),
+      name,
       socketId: socket.id,
     });
     if ('error' in result) return cb(fail(result.error));
@@ -137,7 +144,9 @@ export function registerHandlers(io: Server, socket: Socket): void {
 
   socket.on('restaurant:search', async (payload: { name: string; loc?: LatLng }, cb: (a: Ack) => void) => {
     try {
-      const r = await resolveRestaurant(payload.name ?? '', payload.loc);
+      const name = cleanRestaurantName(payload?.name);
+      if (!name) return cb(fail('Type a restaurant name'));
+      const r = await resolveRestaurant(name, payload.loc);
       cb(ok({ restaurant: r }));
     } catch (e) {
       cb(fail((e as Error).message));
@@ -147,7 +156,11 @@ export function registerHandlers(io: Server, socket: Socket): void {
   socket.on('restaurant:lock', async (payload: { restaurant: Restaurant }, cb: (a: Ack) => void) => {
     const room = joinedCode ? getRoom(joinedCode) : undefined;
     if (!room || !myPlayerId) return cb(fail('Not in a room'));
-    const res = lockRestaurant(room, myPlayerId, payload.restaurant);
+    const incoming = payload?.restaurant;
+    const name = cleanRestaurantName(incoming?.name);
+    if (!incoming || !name) return cb(fail('Pick a restaurant first'));
+    if (destinationTaken(room, myPlayerId, name)) return cb(fail('Someone already picked that — choose another'));
+    const res = lockRestaurant(room, myPlayerId, { ...incoming, name });
     if (res.error) return cb(fail(res.error));
     cb(ok());
     await tick(room); // advance to answering once everyone (incl. bots) has locked

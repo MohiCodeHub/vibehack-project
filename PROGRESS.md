@@ -14,8 +14,8 @@ Tick these off as we go. Tasks mirror the 11 sections in `plan.md`.
 - [x] 2c. Idempotent submission (overwrite, never double-count)
 
 ## 3. Input validation & safety
-- [ ] Validate name / restaurant / answer lengths + room code regex
-- [ ] 3a. Case-insensitive duplicate destination prevention
+- [x] Validate name / restaurant / answer lengths + room code regex (`server/src/validate.ts`)
+- [x] 3a. Case-insensitive duplicate destination prevention (humans + bots avoid dups)
 
 ## 4. AI service hardening
 - [ ] 4a. Timeout + try/catch + mock fallback on every LLM call

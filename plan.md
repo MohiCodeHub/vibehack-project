@@ -142,7 +142,14 @@ Re-submitting a vote (network retry) should overwrite cleanly, not double-count.
 
 ---
 
-## 3. Input validation and safety (`socket.ts`)
+## 3. Input validation and safety (`socket.ts`) — ✅ implemented
+
+Done: `server/src/validate.ts` provides `cleanName` (1–20), `cleanRestaurantName` (1–60),
+`cleanCode` (`/^[A-Z]{4}$/`), all stripping control chars. Applied in `room:create`,
+`room:join`, `restaurant:search`, and `restaurant:lock`. Answers are already capped at 280
+in `submitAnswers`. 3a: `destinationTaken()` rejects a case-insensitive duplicate pick in
+the `restaurant:lock` handler, and bots now pick a non-taken sample. Sims updated to choose
+distinct destinations; both pass. Original notes kept below for reference.
 
 Every payload from the client is hostile until validated. At minimum, on entry to every handler:
 

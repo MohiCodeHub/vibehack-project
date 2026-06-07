@@ -14,11 +14,13 @@ import {
   hasAnsweredAll,
   hasVoted,
   voteCardsForRound,
+  destinationTaken,
   getRoom,
   type Room,
   type Player,
 } from './rooms.ts';
 import { randomSampleRestaurant } from './services/placesService.ts';
+import type { Restaurant } from '../../shared/types.ts';
 import type { Phase } from '../../shared/types.ts';
 
 // Canned, mildly-unhinged bot answers per round (kept funny + on-theme).
@@ -60,12 +62,21 @@ function botAnswer(p: Player, round: number): string {
 }
 
 /** Make every bot take its action for the current phase. Returns true if anything changed. */
+/** A sample restaurant not already championed by someone else (best-effort, bounded). */
+function uniqueSampleFor(room: Room, playerId: string): Restaurant {
+  let pick = randomSampleRestaurant();
+  for (let i = 0; i < 8 && destinationTaken(room, playerId, pick.name); i++) {
+    pick = randomSampleRestaurant();
+  }
+  return pick;
+}
+
 function driveBots(room: Room): boolean {
   let changed = false;
   for (const p of room.players.values()) {
     if (!p.isBot) continue;
     if (room.phase === 'selecting' && !p.restaurant) {
-      lockRestaurant(room, p.id, randomSampleRestaurant());
+      lockRestaurant(room, p.id, uniqueSampleFor(room, p.id));
       changed = true;
     } else if (room.phase === 'answering' && p.questions.length > 0 && !hasAnsweredAll(p)) {
       const answers: Record<string, string> = {};
@@ -186,7 +197,7 @@ function forceAdvance(room: Room): void {
     // sees everyone locked and runs the (single, async) transition to answering.
     for (const p of room.players.values()) {
       if ((p.connected || p.isBot) && !p.restaurant) {
-        lockRestaurant(room, p.id, randomSampleRestaurant());
+        lockRestaurant(room, p.id, uniqueSampleFor(room, p.id));
       }
     }
   } else if (room.phase === 'answering') {

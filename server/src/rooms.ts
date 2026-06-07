@@ -224,6 +224,17 @@ export function lockRestaurant(room: Room, playerId: string, restaurant: Restaur
   return {};
 }
 
+/** True if another player has already locked a restaurant with this name (case-insensitive). */
+export function destinationTaken(room: Room, playerId: string, name: string): boolean {
+  const target = name.trim().toLowerCase();
+  if (!target) return false;
+  for (const p of room.players.values()) {
+    if (p.id === playerId) continue;
+    if (p.restaurant && p.restaurant.name.trim().toLowerCase() === target) return true;
+  }
+  return false;
+}
+
 /** True when every connected player has locked a restaurant. */
 export function allRestaurantsLocked(room: Room): boolean {
   const players = [...room.players.values()].filter((p) => p.connected);
