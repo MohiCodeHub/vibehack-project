@@ -8,6 +8,7 @@ import { RestaurantCard } from '../components/RestaurantCard.tsx';
 import { WaitingFor } from '../components/WaitingFor.tsx';
 import { Utensils, Sparkles } from 'lucide-react';
 import { Screen } from '../components/layout/Screen.tsx';
+import { DecisionTopicDisplay } from '../components/layout/DecisionTopicDisplay.tsx';
 import { Button, SegmentedControl } from '../components/ui';
 import { DecidingMascot } from '../components/illustrations/Mascots.tsx';
 import { PlacesAutocomplete, type PlaceSuggestion } from '../components/PlacesAutocomplete.tsx';
@@ -76,6 +77,7 @@ export function Selecting() {
     return (
       <Screen center className="selecting">
         <Countdown />
+        {room?.decisionTopic && <DecisionTopicDisplay topic={room.decisionTopic} />}
         <WaitingFor
           label="LOCKED IN!"
           done={others.filter((p) => p.hasRestaurant).length}
@@ -91,6 +93,7 @@ export function Selecting() {
   return (
     <Screen className="selecting">
       <Countdown />
+      {room?.decisionTopic && <DecisionTopicDisplay topic={room.decisionTopic} />}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 'var(--ds-space-4)' }}>
         <h2 className="phase-title" style={{ textAlign: 'left', margin: 0 }}>
           PICK YOUR PICK

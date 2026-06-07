@@ -1,5 +1,5 @@
 import type { Restaurant } from '@shared/types.ts';
-import { MapPin, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { Badge } from './ui/Badge.tsx';
 import { cn } from './ui/utils.ts';
 
@@ -38,11 +38,6 @@ export function RestaurantCard({
         {r.source === 'freetext' && <span className="resto-card__chip">custom</span>}
       </div>
       {!compact && r.address && <p className="resto-card__addr">{r.address}</p>}
-      {!compact && r.mapUrl && (
-        <a className="resto-card__map" href={r.mapUrl} target="_blank" rel="noreferrer">
-          <MapPin size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> View on map
-        </a>
-      )}
     </div>
   );
 }
