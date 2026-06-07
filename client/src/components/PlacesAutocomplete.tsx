@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Input } from './ui';
-import { isAutocompleteQueryReady } from './placesAutocompleteLogic.ts';
+import { autocompleteFallbackSuggestion, isAutocompleteQueryReady, withAutocompleteTimeout } from './placesAutocompleteLogic.ts';
 
 export interface PlaceSuggestion {
   placeId: string;
@@ -65,15 +65,15 @@ export function PlacesAutocomplete({ onSelect, disabled, placeholder = 'Search r
 
     setLoading(true);
     debounceRef.current = setTimeout(async () => {
-      const ack = await emit('restaurant:autocomplete', { query: trimmed, loc });
+      const ack = await withAutocompleteTimeout(emit('restaurant:autocomplete', { query: trimmed, loc }));
       if (requestSeq !== requestSeqRef.current) return;
       setLoading(false);
       if (ack.ok && ack.data?.suggestions?.length) {
         setSuggestions(ack.data.suggestions);
         setOpen(true);
       } else {
-        setSuggestions([]);
-        setOpen(false);
+        setSuggestions([autocompleteFallbackSuggestion(trimmed)]);
+        setOpen(true);
       }
     }, 300);
   }

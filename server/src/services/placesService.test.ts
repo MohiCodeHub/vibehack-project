@@ -49,6 +49,58 @@ test('live autocomplete uses the default city when no user location is available
   assert.deepEqual(JSON.parse(body), { input: 'ramen London' });
 });
 
+test('live autocomplete falls back to free text when Google returns no suggestions', async () => {
+  globalThis.fetch = (async () => Response.json({ suggestions: [] })) as typeof fetch;
+
+  const { autocompleteRestaurants } = await importLivePlacesService();
+
+  assert.deepEqual(await autocompleteRestaurants('pastastation tottenham court road'), [
+    {
+      placeId: 'ft_pastastation-tottenham-court-road',
+      name: 'pastastation tottenham court road',
+      description: 'Free text entry',
+    },
+  ]);
+});
+
+test('live autocomplete falls back to free text when Google hangs', async () => {
+  process.env.PLACES_TIMEOUT_MS = '10';
+  globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+    await new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+    });
+    return Response.json({ suggestions: [] });
+  }) as typeof fetch;
+
+  const { autocompleteRestaurants } = await importLivePlacesService();
+
+  assert.deepEqual(await autocompleteRestaurants('pastastation tottenham court road'), [
+    {
+      placeId: 'ft_pastastation-tottenham-court-road',
+      name: 'pastastation tottenham court road',
+      description: 'Free text entry',
+    },
+  ]);
+});
+
+test('live place-id search accepts free-text autocomplete ids without calling Google', async () => {
+  let fetchCalls = 0;
+  globalThis.fetch = (async () => {
+    fetchCalls += 1;
+    throw new Error('should not call Google for free-text ids');
+  }) as typeof fetch;
+
+  const { resolveRestaurantById } = await importLivePlacesService();
+
+  assert.deepEqual(await resolveRestaurantById('ft_pastastation-tottenham-court-road'), {
+    id: 'ft_pastastation-tottenham-court-road',
+    name: 'pastastation tottenham court road',
+    source: 'freetext',
+    mapUrl: 'https://www.google.com/maps/search/?api=1&query=pastastation%20tottenham%20court%20road%20London',
+  });
+  assert.equal(fetchCalls, 0);
+});
+
 test('live restaurant search falls back to free text when Google fails', async () => {
   globalThis.fetch = (async () => {
     throw new Error('network unavailable');

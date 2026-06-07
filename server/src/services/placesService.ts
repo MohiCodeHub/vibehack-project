@@ -220,9 +220,13 @@ export async function autocompleteRestaurants(query: string, loc?: LatLng): Prom
     if (matches.length > 0) return matches;
     // No sample restaurants matched — return a free-text fallback so the user
     // can always confirm whatever they typed (mirrors resolveRestaurant() behaviour).
-    return [{ placeId: `ft_${slug(query)}`, name: query.trim(), description: 'Free text entry' }];
+    return [freeTextSuggestion(query)];
   }
   return autocompleteRestaurantsLive(query, loc);
+}
+
+function freeTextSuggestion(query: string): PlaceSuggestion {
+  return { placeId: `ft_${slug(query)}`, name: query.trim(), description: 'Free text entry' };
 }
 
 async function autocompleteRestaurantsLive(query: string, loc?: LatLng): Promise<PlaceSuggestion[]> {
@@ -240,24 +244,25 @@ async function autocompleteRestaurantsLive(query: string, loc?: LatLng): Promise
     },
     body: JSON.stringify(body),
   }).catch(() => ({ suggestions: [] }));
-  return (json.suggestions ?? [])
+  const suggestions = (json.suggestions ?? [])
     .filter((s: any) => s.placePrediction)
     .map((s: any) => ({
       placeId: s.placePrediction.placeId,
       name: s.placePrediction.structuredFormat?.mainText?.text ?? s.placePrediction.text?.text ?? '',
       description: s.placePrediction.structuredFormat?.secondaryText?.text ?? '',
     }));
+  return suggestions.length > 0 ? suggestions : [freeTextSuggestion(query)];
 }
 
 export async function resolveRestaurantById(placeId: string): Promise<Restaurant> {
+  if (placeId.startsWith('ft_')) {
+    const freetextName = placeId.slice(3).replace(/-+/g, ' ');
+    return withMapUrl({ id: placeId, name: freetextName, source: 'freetext' });
+  }
   if (USE_MOCKS) {
     const hit = SAMPLE_RESTAURANTS.find((r) => r.id === placeId);
     if (hit) return withMapUrl(hit);
-    // Reconstruct a human-readable name from free-text placeIds (ft_<slug>).
-    const freetextName = placeId.startsWith('ft_')
-      ? placeId.slice(3).replace(/-+/g, ' ')
-      : placeId;
-    return withMapUrl({ id: placeId, name: freetextName, source: 'freetext' });
+    return withMapUrl({ id: placeId, name: placeId, source: 'freetext' });
   }
   return resolveRestaurantByIdLive(placeId);
 }
