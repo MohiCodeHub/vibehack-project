@@ -192,6 +192,13 @@ selected by env; prompts now ask for a `{key:[...]}` object for reliable parsing
 live (OpenAI key → 0 fallbacks across runs), with a bad key (3 clean fallbacks, game still
 completes), and offline (mocks). Original notes kept below for reference.
 
+**Update — reliability (per user):** default OpenAI model is now **gpt-4o**, and every live
+LLM call **retries 3×** (12s timeout each) before giving up. Round-prompt generation then
+falls back to the **generic** mock prompts (written about "your pick", so they fit any place
+or outing type and never look dinner-specific) — so a live failure is logically negligible
+*and* the game can never hang. Verified: real key → 0 fallbacks; bad key → 3 retries → generic
+mock → game still completes.
+
 **Update — round-prompt model (per user request):** question generation moved from
 per-player/per-restaurant to **3 shared, category-based prompts per room** (`generateRoundPrompts`
 using a chaotic game-show-host system prompt keyed on `outingType`). Each prompt carries a

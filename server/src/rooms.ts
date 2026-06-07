@@ -239,8 +239,8 @@ export function lockRestaurant(room: Room, playerId: string, restaurant: Restaur
 
 /**
  * Generate the room's 3 shared round prompts once, cached on the room (idempotent). Kicked
- * off at game start so the answering phase begins instantly. generateRoundPrompts already
- * falls back to a mock on any LLM failure, so this never rejects in practice.
+ * off at game start so the answering phase begins instantly. generateRoundPrompts retries hard
+ * and falls back to the generic mock, so this always resolves with prompts set.
  */
 export function ensureRoomPrompts(room: Room): Promise<void> {
   if (room.prompts && room.prompts.length >= 3) return Promise.resolve();

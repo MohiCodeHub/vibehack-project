@@ -10,9 +10,9 @@ import type { SwipeCard } from '../../../shared/types.ts';
 
 const USE_MOCKS = process.env.USE_MOCKS === 'true' || !process.env.LLM_API_KEY;
 const LLM_PROVIDER = (process.env.LLM_PROVIDER || 'openai').toLowerCase(); // 'openai' | 'anthropic'
-const DEFAULT_MODEL = LLM_PROVIDER === 'anthropic' ? 'claude-haiku-4-5-20251001' : 'gpt-4o-mini';
+const DEFAULT_MODEL = LLM_PROVIDER === 'anthropic' ? 'claude-haiku-4-5-20251001' : 'gpt-4o';
 const LLM_MODEL = process.env.LLM_MODEL || DEFAULT_MODEL;
-const LLM_TIMEOUT_MS = 8000;
+const LLM_TIMEOUT_MS = 12000;
 
 // ---- Swipe cards ----
 
@@ -124,18 +124,23 @@ Each object has "prompt" (shown to every player) and "host_snark" (a brief, 1-se
 THE GROUP IS DECIDING ON: ${category}`;
 }
 
-/** Generate the 3 shared round prompts for an outing category. Falls back to the mock. */
+/**
+ * Generate the 3 shared round prompts for a decision category.
+ * Retries hard (so a real failure is logically negligible), then falls back to the GENERIC
+ * mock prompts — which are written about "your pick" so they fit any place or outing type,
+ * never hang the game, and never look dinner-specific.
+ */
 export async function generateRoundPrompts(outingType: string): Promise<RoundPrompt[]> {
   if (USE_MOCKS) return MOCK_ROUND_PROMPTS;
   try {
-    const arr = firstArray(await llmJson(roundPromptInstruction(outingType)));
+    const arr = firstArray(await llmJson(roundPromptInstruction(outingType), { attempts: 3, timeoutMs: LLM_TIMEOUT_MS }));
     if (arr) {
       const prompts = arr.map(toRoundPrompt).filter((p): p is RoundPrompt => p !== null);
       if (prompts.length >= 3) return prompts.slice(0, 3);
     }
-    throw new Error('bad round-prompts shape');
+    throw new Error('LLM returned no usable round prompts');
   } catch (err) {
-    console.warn('[aiService] generateRoundPrompts fell back to mock:', (err as Error).message);
+    console.warn('[aiService] generateRoundPrompts fell back to generic mock:', (err as Error).message);
     return MOCK_ROUND_PROMPTS;
   }
 }
@@ -183,10 +188,30 @@ function parseJsonLoose(text: string): unknown {
   return null;
 }
 
-/** Prompt the configured LLM with a hard timeout and return parsed JSON. Throws on any failure. */
-async function llmJson(prompt: string): Promise<unknown> {
+/**
+ * Prompt the configured LLM and return parsed JSON, retrying a few times before giving up.
+ * Throws if every attempt fails — callers decide whether to fall back (swipe cards) or
+ * surface an error (round prompts). Retries make a live failure logically negligible.
+ */
+async function llmJson(prompt: string, opts: { attempts?: number; timeoutMs?: number } = {}): Promise<unknown> {
+  const attempts = opts.attempts ?? 3;
+  const timeoutMs = opts.timeoutMs ?? LLM_TIMEOUT_MS;
+  let lastErr: unknown;
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      return await llmJsonOnce(prompt, timeoutMs);
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[aiService] LLM attempt ${i}/${attempts} failed: ${(err as Error).message}`);
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error('LLM failed');
+}
+
+/** One LLM call with a hard timeout. Throws on any failure. */
+async function llmJsonOnce(prompt: string, timeoutMs: number): Promise<unknown> {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), LLM_TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const text = await llmRaw(prompt, ctrl.signal);
     const parsed = parseJsonLoose(text);
@@ -194,7 +219,7 @@ async function llmJson(prompt: string): Promise<unknown> {
     return parsed;
   } catch (err) {
     // Normalize the abort into a clearer message for logs.
-    if ((err as Error).name === 'AbortError') throw new Error(`LLM timed out after ${LLM_TIMEOUT_MS}ms`);
+    if ((err as Error).name === 'AbortError') throw new Error(`LLM timed out after ${timeoutMs}ms`);
     throw err;
   } finally {
     clearTimeout(timer);
