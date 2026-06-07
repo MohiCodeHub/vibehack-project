@@ -905,6 +905,16 @@ body {
   50% { transform: scale(1.08); }
 }
 
+/* ===== Host snark line under the round prompt ===== */
+
+.vote-host-snark {
+  margin: var(--ds-space-1) 0 0;
+  font-family: var(--ds-font-sketch);
+  font-size: var(--ds-text-lg);
+  color: var(--ds-color-warning);
+  line-height: var(--ds-leading-snug);
+}
+
 /* ---- Places Autocomplete ---- */
 .places-autocomplete {
   position: relative;

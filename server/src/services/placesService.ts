@@ -2,6 +2,7 @@
 // Set USE_MOCKS=true (default when no PLACES_API_KEY) to run fully offline.
 
 import type { Restaurant, SwipeChoice } from '../../../shared/types.ts';
+import { generateCandidates, type Candidate } from './aiService.ts';
 
 const USE_MOCKS = process.env.USE_MOCKS === 'true' || !process.env.PLACES_API_KEY;
 const DEFAULT_CITY = process.env.DEFAULT_CITY || 'San Francisco';
@@ -47,14 +48,67 @@ export async function resolveRestaurant(name: string, loc?: LatLng): Promise<Res
 }
 
 /**
- * Given a player's swipe profile, return 3-4 candidate restaurants.
- * In mock mode we score the sample set against the swipe choices.
+ * Given a player's swipe profile and the decision topic, return 3-4 candidate options.
+ * Real Google Places when a key is set; otherwise LLM-suggested options for the topic in
+ * DEFAULT_CITY (specific places or general activities); only if that's unavailable do we fall
+ * back to the scored sample set.
  */
-export async function candidatesForProfile(choices: SwipeChoice[], loc?: LatLng): Promise<Restaurant[]> {
-  if (USE_MOCKS) {
-    return mockCandidatesForProfile(choices);
+export async function candidatesForProfile(choices: SwipeChoice[], topic: string, loc?: LatLng): Promise<Restaurant[]> {
+  if (!USE_MOCKS) return candidatesForProfileLive(choices, loc);
+
+  // No Places key → ask the LLM for topic-appropriate options matching the swipe profile.
+  const llm = await generateCandidates(topic, DEFAULT_CITY, describeProfile(choices), 4);
+  if (llm && llm.length) return llm.map((c) => candidateToRestaurant(c));
+
+  // Last resort (only if the LLM is down): the scored built-in samples.
+  return mockCandidatesForProfile(choices);
+}
+
+/**
+ * Turn a swipe profile into a preference string. When the axis + rejected side are present we
+ * send the full trade-off context ("Energy → Relaxing (over Active)"); otherwise just the choice.
+ */
+function describeProfile(choices: SwipeChoice[]): string {
+  const parts = choices
+    .map((c) => {
+      const chosen = c.choice?.trim();
+      if (!chosen) return null;
+      if (c.axis?.trim() && c.rejected?.trim()) return `${c.axis.trim()} → ${chosen} (over ${c.rejected.trim()})`;
+      return chosen;
+    })
+    .filter((x): x is string => !!x);
+  return parts.length ? parts.join('; ') : 'a great all-rounder';
+}
+
+/**
+ * Map an LLM candidate into a Restaurant-shaped option. Location-based picks (venues,
+ * destinations) get a Google Maps link; abstract picks (movie titles, etc.) get a plain web
+ * search link and no made-up address.
+ */
+function candidateToRestaurant(c: Candidate): Restaurant {
+  const loc = c.location?.trim();
+  if (c.locationBased) {
+    const query = encodeURIComponent(loc ? `${c.name} ${loc}` : c.name);
+    return {
+      id: `ai_${slug(c.name)}`,
+      name: c.name,
+      category: c.category,
+      priceLevel: c.priceLevel,
+      rating: c.rating,
+      address: loc,
+      source: 'places',
+      mapUrl: `https://www.google.com/maps/search/?api=1&query=${query}`,
+    };
   }
-  return candidatesForProfileLive(choices, loc);
+  // Abstract pick (e.g. a movie title) — no location; link to a web search instead of a map.
+  return {
+    id: `ai_${slug(c.name)}`,
+    name: c.name,
+    category: c.category,
+    rating: c.rating,
+    source: 'freetext',
+    mapUrl: `https://www.google.com/search?q=${encodeURIComponent(c.name)}`,
+  };
 }
 
 // ---- Mock scoring heuristics ----

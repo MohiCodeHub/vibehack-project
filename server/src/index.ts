@@ -61,6 +61,7 @@ app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
     mocks: { ai: aiConfig.USE_MOCKS, places: placesConfig.USE_MOCKS },
+    ai: { provider: aiConfig.LLM_PROVIDER, model: aiConfig.LLM_MODEL },
     defaultCity: placesConfig.DEFAULT_CITY,
   });
 });
@@ -93,5 +94,6 @@ httpServer.listen(PORT, () => {
   console.log(`[where-to] listening on :${PORT}  (NODE_ENV=${process.env.NODE_ENV ?? 'development'})`);
   console.log(`[where-to] mode: ${serveClient ? 'single-service (serving client)' : 'API-only (split deploy)'}`);
   console.log(`[where-to] mocks → ai:${aiConfig.USE_MOCKS} places:${placesConfig.USE_MOCKS}`);
+  if (!aiConfig.USE_MOCKS) console.log(`[where-to] AI → ${aiConfig.LLM_PROVIDER} (${aiConfig.LLM_MODEL})`);
   if (isProd) console.log(`[where-to] CORS allowlist: ${ALLOWED_ORIGINS.join(', ') || '(none set)'} + *.vercel.app`);
 });

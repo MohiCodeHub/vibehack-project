@@ -10,7 +10,7 @@ import type {
   PrivateState,
 } from '../../shared/types.ts';
 import { maxPicks } from '../../shared/types.ts';
-import { generateQuestions, ROUND_PROMPTS } from './services/aiService.ts';
+import { generateRoundPrompts, type RoundPrompt } from './services/aiService.ts';
 
 export const TOTAL_ROUNDS = 3;
 
@@ -23,6 +23,7 @@ interface Player {
   /** Server-driven test bot (locks/answers/votes automatically). */
   isBot: boolean;
   restaurant?: Restaurant;
+  /** This player's per-round questions — the shared room prompts, copied in at answering time. */
   questions: Question[];
   /** questionId -> answer text */
   answers: Record<string, string>;
@@ -45,6 +46,10 @@ interface Room {
   createdAt: number;
   /** Deadline (epoch ms) for the current timed phase, or null when untimed. */
   deadlineTs: number | null;
+  /** The 3 shared, category-based round prompts (generated once from outingType). */
+  prompts?: RoundPrompt[];
+  /** In-flight prompt generation, so beginAnswering can await a pre-gen already running. */
+  promptsPromise?: Promise<void>;
   winner?: { playerName: string; restaurant: Restaurant };
 }
 
@@ -220,6 +225,7 @@ export function startGame(room: Room, byPlayerId: string): { error?: string } {
   const connected = [...room.players.values()].filter((p) => p.connected);
   if (connected.length < 2) return { error: 'Need at least 2 players' };
   room.phase = 'selecting';
+  void ensureRoomPrompts(room); // pre-generate prompts now, hidden behind the selecting phase (4b)
   return {};
 }
 
@@ -229,6 +235,27 @@ export function lockRestaurant(room: Room, playerId: string, restaurant: Restaur
   if (room.phase !== 'selecting') return { error: 'Not in selection phase' };
   p.restaurant = restaurant;
   return {};
+}
+
+/**
+ * Generate the room's 3 shared round prompts once, cached on the room (idempotent). Kicked
+ * off at game start so the answering phase begins instantly. generateRoundPrompts retries hard
+ * and falls back to the generic mock, so this always resolves with prompts set.
+ */
+export function ensureRoomPrompts(room: Room): Promise<void> {
+  if (room.prompts && room.prompts.length >= 3) return Promise.resolve();
+  if (room.promptsPromise) return room.promptsPromise;
+  const category = room.decisionTopic || room.outingType;
+  const promise = generateRoundPrompts(category)
+    .then((p) => {
+      room.prompts = p;
+    })
+    .catch((err) => {
+      console.warn('[rooms] ensureRoomPrompts failed:', (err as Error).message);
+      room.promptsPromise = undefined; // let beginAnswering retry
+    });
+  room.promptsPromise = promise;
+  return promise;
 }
 
 /** True if another player has already locked a restaurant with this name (case-insensitive). */
@@ -248,16 +275,16 @@ export function allRestaurantsLocked(room: Room): boolean {
   return players.length >= 2 && players.every((p) => !!p.restaurant);
 }
 
-/** Generate questions for everyone and move to answering. */
+/** Ensure the room's shared prompts are ready (pre-generated at start), copy them to each
+ *  player as their per-round questions, then advance. */
 export async function beginAnswering(room: Room): Promise<void> {
   if (room.phase !== 'selecting') return;
-  await Promise.all(
-    [...room.players.values()]
-      .filter((p) => p.restaurant)
-      .map(async (p) => {
-        p.questions = await generateQuestions({ name: p.name, restaurant: p.restaurant! });
-      }),
-  );
+  await ensureRoomPrompts(room);
+  const prompts = room.prompts ?? [];
+  const questions: Question[] = prompts.map((p, round) => ({ id: `q${round}`, round, text: p.text }));
+  for (const p of room.players.values()) {
+    if (p.restaurant) p.questions = questions;
+  }
   room.phase = 'answering';
 }
 
@@ -382,6 +409,8 @@ export function resetToLobby(room: Room, byPlayerId: string): { error?: string }
   room.phase = 'lobby';
   room.round = 0;
   room.winner = undefined;
+  room.prompts = undefined;
+  room.promptsPromise = undefined;
   room.deadlineTs = null;
   for (const p of room.players.values()) {
     p.restaurant = undefined;
@@ -436,7 +465,9 @@ export function serializeRoom(room: Room): RoomView {
   if (room.decisionTopic) view.decisionTopic = room.decisionTopic;
 
   if (room.phase === 'voting') {
-    view.roundPrompt = ROUND_PROMPTS[room.round];
+    const prompt = room.prompts?.[room.round];
+    view.roundPrompt = prompt?.text;
+    view.roundSnark = prompt?.snark;
     view.voteCards = voteCardsForRound(room, room.round);
   }
   return view;
