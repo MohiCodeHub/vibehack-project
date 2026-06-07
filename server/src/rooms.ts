@@ -34,6 +34,8 @@ interface Player {
 interface Room {
   code: string;
   outingType: string;
+  /** Optional group decision topic set by host in lobby. */
+  decisionTopic?: string;
   phase: Phase;
   hostId: string;
   players: Map<string, Player>;
@@ -59,11 +61,16 @@ function makeCode(): string {
 
 // ---- room lifecycle ----
 
-export function createRoom(outingType: string, host: { id: string; name: string; socketId: string }): Room {
+export function createRoom(
+  outingType: string,
+  host: { id: string; name: string; socketId: string },
+  decisionTopic?: string,
+): Room {
   const code = makeCode();
   const room: Room = {
     code,
     outingType,
+    decisionTopic: decisionTopic || undefined,
     phase: 'lobby',
     hostId: host.id,
     players: new Map(),
@@ -375,6 +382,7 @@ export function resetToLobby(room: Room, byPlayerId: string): { error?: string }
   room.phase = 'lobby';
   room.round = 0;
   room.winner = undefined;
+  room.deadlineTs = null;
   for (const p of room.players.values()) {
     p.restaurant = undefined;
     p.questions = [];
@@ -382,6 +390,15 @@ export function resetToLobby(room: Room, byPlayerId: string): { error?: string }
     p.votes = {};
     p.score = 0;
   }
+  return {};
+}
+
+/** Host sets or clears the group's decision topic while in lobby. */
+export function setDecisionTopic(room: Room, byPlayerId: string, topic: string): { error?: string } {
+  if (byPlayerId !== room.hostId) return { error: 'Only the host can set the topic' };
+  if (room.phase !== 'lobby') return { error: 'Topic can only be changed in the lobby' };
+  const trimmed = topic.trim();
+  room.decisionTopic = trimmed || undefined;
   return {};
 }
 
@@ -413,8 +430,10 @@ export function serializeRoom(room: Room): RoomView {
     round: room.round,
     totalRounds: TOTAL_ROUNDS,
     deadlineTs: room.deadlineTs,
-    winner: room.winner,
   };
+
+  if (room.winner) view.winner = room.winner;
+  if (room.decisionTopic) view.decisionTopic = room.decisionTopic;
 
   if (room.phase === 'voting') {
     view.roundPrompt = ROUND_PROMPTS[room.round];
