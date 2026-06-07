@@ -65,10 +65,11 @@ Return ONLY JSON of the form {"cards": [{"id": "short-slug", "axis": "1-2 word l
 export interface Candidate {
   name: string;
   category?: string;
-  /** True for a specific named place (gets an address); false for a general activity. */
-  specific?: boolean;
-  area?: string; // neighbourhood/area within the city (specific places only)
-  priceLevel?: number; // 1-4
+  /** True only for a physical place/destination someone goes to (gets a map link). */
+  locationBased?: boolean;
+  /** Human-readable place for a map, e.g. "Soho, London" or "Japan" — location-based only. */
+  location?: string;
+  priceLevel?: number; // 1-4 (local venues only)
   rating?: number; // 0-5
 }
 
@@ -81,25 +82,36 @@ function toCandidate(x: unknown): Candidate | null {
   return {
     name: name.slice(0, 60),
     category: typeof o.category === 'string' ? o.category.slice(0, 40) : undefined,
-    specific: o.specific === true,
-    area: typeof o.area === 'string' ? o.area.slice(0, 60) : undefined,
+    locationBased: o.locationBased === true,
+    location: typeof o.location === 'string' ? o.location.slice(0, 60) : undefined,
     priceLevel: num(o.priceLevel),
     rating: num(o.rating),
   };
 }
 
 /**
- * Suggest varied options for a decision topic, matching a free-text preference string.
- * Options may be specific named places OR general activities — whatever fits the topic.
- * Returns null when AI is mocked or on failure, so the caller can fall back.
+ * Suggest varied options that DIRECTLY answer a decision topic. The TYPE of answer matches the
+ * decision: movie titles for "which movie", cities/countries for "where to travel", specific
+ * venues for local place decisions, activities for general ones. Location is attached only when
+ * the option is a physical place. Returns null when AI is mocked or on failure (caller falls back).
  */
 export async function generateCandidates(topic: string, city: string, prefs: string, count = 4): Promise<Candidate[] | null> {
   if (USE_MOCKS) return null;
   try {
-    const prompt = `The group is deciding on: "${topic}". Suggest exactly ${count} specific, varied options they could actually do${city ? `, in or around ${city}` : ''}, matching these preferences: ${prefs}.
-Options can be a specific named place (e.g. a particular restaurant, cinema, or venue) OR a general activity (e.g. "Go to the cinema", "Visit a theme park", "Mini golf") — whatever genuinely fits "${topic}". Mix them where sensible and vary the options.
-For a specific named place, set "specific": true and include an "area" (neighbourhood). For a general activity, set "specific": false and omit area.
-Return ONLY JSON of the form {"options": [{"name": "...", "category": "short label", "specific": true, "area": "neighbourhood", "priceLevel": 1, "rating": 4.5}]} where priceLevel is 1-4 and rating 0-5 (omit price/rating for general activities).`;
+    const prompt = `The group is deciding: "${topic}". Suggest exactly ${count} varied, specific options that DIRECTLY answer that decision.
+
+Match the TYPE of answer to the decision:
+- Choosing a movie/show to watch → real movie or show TITLES (never cinemas).
+- Choosing where to travel → cities or countries (never specific venues).
+- Choosing where to eat, or a specific local place to go → specific named venues${city ? `, generally in or around ${city}` : ''}.
+- A general thing to do → activities (e.g. "Mini golf", "Go bowling").
+- Anything else → whatever specific thing actually answers "${topic}".
+Only attach a city/location when the decision is about a physical place to go; for titles (movies, shows, books, games) location is irrelevant.
+
+Match these preferences: ${prefs}. Vary the options.
+
+For each option provide: "name"; a short "category" label; "locationBased" (true ONLY if it is a physical place/destination someone goes to); "location" (a human-readable place for a map, e.g. "Soho, London" or "Japan", only when locationBased); and for local venues "priceLevel" (1-4) and "rating" (0-5).
+Return ONLY JSON of the form {"options": [{"name": "...", "category": "short label", "locationBased": true, "location": "...", "priceLevel": 1, "rating": 4.5}]}.`;
     const arr = firstArray(await llmJson(prompt, { attempts: 2, timeoutMs: LLM_TIMEOUT_MS }));
     if (arr) {
       const options = arr.map(toCandidate).filter((c): c is Candidate => c !== null);

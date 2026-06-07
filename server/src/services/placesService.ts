@@ -83,19 +83,35 @@ function describeProfile(choices: SwipeChoice[]): string {
   return parts.length ? parts.join('; ') : 'a great all-rounder';
 }
 
-/** Map an LLM candidate (specific place OR general activity) into a Restaurant-shaped option. */
+/**
+ * Map an LLM candidate into a Restaurant-shaped option. Location-based picks (venues,
+ * destinations) get a Google Maps link; abstract picks (movie titles, etc.) get a plain web
+ * search link and no made-up address.
+ */
 function candidateToRestaurant(c: Candidate): Restaurant {
-  const area = c.area?.trim();
-  const address = area ? `${area}, ${DEFAULT_CITY}` : DEFAULT_CITY;
-  return withMapUrl({
+  const loc = c.location?.trim();
+  if (c.locationBased) {
+    const query = encodeURIComponent(loc ? `${c.name} ${loc}` : c.name);
+    return {
+      id: `ai_${slug(c.name)}`,
+      name: c.name,
+      category: c.category,
+      priceLevel: c.priceLevel,
+      rating: c.rating,
+      address: loc,
+      source: 'places',
+      mapUrl: `https://www.google.com/maps/search/?api=1&query=${query}`,
+    };
+  }
+  // Abstract pick (e.g. a movie title) — no location; link to a web search instead of a map.
+  return {
     id: `ai_${slug(c.name)}`,
     name: c.name,
     category: c.category,
-    priceLevel: c.priceLevel,
     rating: c.rating,
-    address,
-    source: 'places',
-  });
+    source: 'freetext',
+    mapUrl: `https://www.google.com/search?q=${encodeURIComponent(c.name)}`,
+  };
 }
 
 // ---- Mock scoring heuristics ----
