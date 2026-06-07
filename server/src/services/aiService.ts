@@ -40,7 +40,7 @@ function isSwipeCard(x: unknown): x is SwipeCard {
 export async function generateSwipeCards(outingType: string): Promise<SwipeCard[]> {
   if (USE_MOCKS) return MOCK_SWIPE_CARDS;
   try {
-    const prompt = `Generate exactly 5 binary "this or that" trade-off cards to help someone pick a ${outingType} restaurant.
+    const prompt = `Generate exactly 5 binary "this or that" trade-off cards to help a group decide on their ${outingType} outing.
 Return ONLY JSON of the form {"cards": [{"id": "...", "axis": "...", "left": "...", "right": "..."}]} where
 id is a short slug, axis is a 1-2 word label, and left/right are short options.
 Use these axis ids in this order: vibe, adventure, pace, budget, volume.`;
@@ -68,19 +68,27 @@ function mockQuestionTemplates(r: Restaurant): string[] {
   ];
 }
 
-export async function generateQuestions(player: { name: string; restaurant: Restaurant }): Promise<Question[]> {
+export async function generateQuestions(player: {
+  name: string;
+  restaurant: Restaurant;
+  outingType: string;
+}): Promise<Question[]> {
   const texts = await generateQuestionTexts(player);
   return texts.map((text, round) => ({ id: `q${round}`, round, text }));
 }
 
 /** The raw 3 question strings — live with mock fallback, always exactly 3. */
-async function generateQuestionTexts(player: { name: string; restaurant: Restaurant }): Promise<string[]> {
+async function generateQuestionTexts(player: {
+  name: string;
+  restaurant: Restaurant;
+  outingType: string;
+}): Promise<string[]> {
   if (USE_MOCKS) return mockQuestionTemplates(player.restaurant);
   try {
-    const prompt = `Write exactly 3 short, comedic party-game questions for a player named "${player.name}" who is championing the restaurant "${player.restaurant.name}"${
+    const prompt = `Write exactly 3 short, comedic party-game questions for a player named "${player.name}" who is championing "${player.restaurant.name}"${
       player.restaurant.category ? ` (${player.restaurant.category})` : ''
-    }.
-Each question should be punchy (under 200 chars), funny, and reference the restaurant where natural.
+    } as the group's pick for ${player.outingType}.
+Each question should be punchy (under 200 chars), funny, and reference their pick where natural.
 Return ONLY JSON of the form {"questions": ["...", "...", "..."]} with exactly 3 strings.`;
     const arr = firstArray(await llmJson(prompt));
     if (arr) {

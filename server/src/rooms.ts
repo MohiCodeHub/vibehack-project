@@ -223,7 +223,7 @@ export function lockRestaurant(room: Room, playerId: string, restaurant: Restaur
   if (!p) return { error: 'Player not found' };
   if (room.phase !== 'selecting') return { error: 'Not in selection phase' };
   p.restaurant = restaurant;
-  void ensureQuestions(p); // pre-generate questions now, hidden behind the selecting phase (4b)
+  void ensureQuestions(p, room.outingType); // pre-generate questions now, hidden behind the selecting phase (4b)
   return {};
 }
 
@@ -232,11 +232,11 @@ export function lockRestaurant(room: Room, playerId: string, restaurant: Restaur
  * lock time so the answering phase starts instantly. generateQuestions already falls back to
  * a mock on any LLM failure, so this never rejects in practice.
  */
-export function ensureQuestions(p: Player): Promise<void> {
+export function ensureQuestions(p: Player, outingType: string): Promise<void> {
   if (!p.restaurant) return Promise.resolve();
   if (p.questions.length > 0) return Promise.resolve();
   if (p.questionsPromise) return p.questionsPromise;
-  const promise = generateQuestions({ name: p.name, restaurant: p.restaurant })
+  const promise = generateQuestions({ name: p.name, restaurant: p.restaurant, outingType })
     .then((qs) => {
       p.questions = qs;
     })
@@ -268,7 +268,9 @@ export function allRestaurantsLocked(room: Room): boolean {
 /** Ensure everyone's questions are ready (most were pre-generated at lock time), then advance. */
 export async function beginAnswering(room: Room): Promise<void> {
   if (room.phase !== 'selecting') return;
-  await Promise.all([...room.players.values()].filter((p) => p.restaurant).map((p) => ensureQuestions(p)));
+  await Promise.all(
+    [...room.players.values()].filter((p) => p.restaurant).map((p) => ensureQuestions(p, room.outingType)),
+  );
   room.phase = 'answering';
 }
 
