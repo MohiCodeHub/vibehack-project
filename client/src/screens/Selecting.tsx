@@ -9,6 +9,7 @@ import { RestaurantCard } from '../components/RestaurantCard.tsx';
 import { WaitingFor } from '../components/WaitingFor.tsx';
 import { Screen } from '../components/layout/Screen.tsx';
 import { Button, FormField, Input, SegmentedControl } from '../components/ui';
+import { Countdown } from '../components/Countdown.tsx';
 
 type Path = 'choose' | 'manual' | 'swipe' | 'pick';
 
@@ -69,6 +70,7 @@ export function Selecting() {
     const others = room?.players.filter((p) => p.connected) ?? [];
     return (
       <Screen center className="selecting">
+        <Countdown />
         <WaitingFor
           label="LOCKED IN!"
           done={others.filter((p) => p.hasRestaurant).length}
@@ -83,6 +85,7 @@ export function Selecting() {
 
   return (
     <Screen className="selecting">
+      <Countdown />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 'var(--ds-space-4)' }}>
         <h2 className="phase-title" style={{ textAlign: 'left', margin: 0 }}>
           PICK YOUR PICK

@@ -77,12 +77,17 @@ async function run() {
   await emit(host, 'restaurant:lock', { restaurant: search.data.restaurant });
   log(`✓ ${host.name} championed "${search.data.restaurant.name}" (manual)`);
 
+  // Track claims locally so picks stay distinct without waiting on broadcasts —
+  // duplicate destinations are rejected server-side.
+  const claimed = new Set([search.data.restaurant.name.toLowerCase()]);
   for (const p of [p2, p3]) {
     const cards = await emit(p, 'swipe:cards');
     const choices = cards.data.cards.map((c, i) => ({ cardId: c.id, pick: i % 2 ? 'left' : 'right' }));
     const cand = await emit(p, 'swipe:candidates', { choices });
-    const pick = cand.data.candidates[0];
-    await emit(p, 'restaurant:lock', { restaurant: pick });
+    const pick = cand.data.candidates.find((r) => !claimed.has(r.name.toLowerCase())) ?? cand.data.candidates[0];
+    claimed.add(pick.name.toLowerCase());
+    const lk = await emit(p, 'restaurant:lock', { restaurant: pick });
+    if (!lk.ok) throw new Error(`${p.name} lock failed: ` + lk.error);
     log(`✓ ${p.name} championed "${pick.name}" (swipe)`);
   }
 

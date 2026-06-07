@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 import path from 'node:path';
 import { Server } from 'socket.io';
-import { registerHandlers } from './socket.ts';
+import { registerHandlers, broadcast } from './socket.ts';
+import { setBroadcaster } from './flow.ts';
 import { reapRooms } from './rooms.ts';
 import { aiConfig } from './services/aiService.ts';
 import { placesConfig } from './services/placesService.ts';
@@ -77,6 +78,9 @@ if (serveClient) {
   app.use(express.static(clientDist));
   app.get('*', (_req, res) => res.sendFile(path.join(clientDist, 'index.html')));
 }
+
+// Let phase-timer expiry (in flow.ts) push state to clients without a triggering socket.
+setBroadcaster((room) => broadcast(io, room));
 
 io.on('connection', (socket) => {
   registerHandlers(io, socket);

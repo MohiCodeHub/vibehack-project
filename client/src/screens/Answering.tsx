@@ -6,6 +6,7 @@ import { useToast } from '../components/Toast.tsx';
 import { WaitingFor } from '../components/WaitingFor.tsx';
 import { Screen } from '../components/layout/Screen.tsx';
 import { Button, Textarea } from '../components/ui';
+import { Countdown } from '../components/Countdown.tsx';
 
 export function Answering() {
   const { room, priv, emit } = useGame();
@@ -41,6 +42,7 @@ export function Answering() {
     const players = room?.players.filter((p) => p.connected && p.hasRestaurant) ?? [];
     return (
       <Screen center className="answering">
+        <Countdown />
         <WaitingFor
           label="SUBMITTED!"
           done={players.filter((p) => p.hasAnswered).length}
@@ -55,6 +57,7 @@ export function Answering() {
 
   return (
     <Screen className="answering">
+      <Countdown />
       <div className="question-header">
         <h2 className="phase-title" style={{ margin: 0, textAlign: 'left' }}>
           QUIZZIN&apos; TIME

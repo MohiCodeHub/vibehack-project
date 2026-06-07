@@ -45,13 +45,19 @@ async function run() {
   await until(() => room.players.filter((p) => p.isBot && p.hasRestaurant).length === 2, 'bots locked');
   log('✓ started → selecting; bots auto-locked their restaurants');
 
-  // Human locks a pick → should auto-advance to answering
-  const search = await emit(socket, 'restaurant:search', { name: 'Pho' });
-  await emit(socket, 'restaurant:lock', { restaurant: search.data.restaurant });
+  // Human locks a pick → should auto-advance to answering. The bots may have
+  // randomly grabbed our first choice (duplicates are rejected), so try a few terms.
+  let myPick = null;
+  for (const term of ['Pho', 'Ramen', 'Nonna', 'Saffron', 'Dragon', 'Burger', 'Green', 'Smoke']) {
+    const search = await emit(socket, 'restaurant:search', { name: term });
+    const lk = await emit(socket, 'restaurant:lock', { restaurant: search.data.restaurant });
+    if (lk.ok) { myPick = search.data.restaurant.name; break; }
+  }
+  if (!myPick) throw new Error('could not lock any restaurant (all taken?)');
   await until(() => room.phase === 'answering', 'answering', 8000);
   await until(() => (priv?.questions?.length ?? 0) === 3, 'my questions');
   await until(() => room.players.filter((p) => p.isBot && p.hasAnswered).length === 2, 'bots answered');
-  log(`✓ I championed "${search.data.restaurant.name}" → answering; bots auto-answered`);
+  log(`✓ I championed "${myPick}" → answering; bots auto-answered`);
 
   // Human answers → auto-advance to voting
   const answers = {};
