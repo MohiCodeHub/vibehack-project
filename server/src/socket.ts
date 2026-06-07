@@ -141,7 +141,7 @@ export function registerHandlers(io: Server, socket: Socket): void {
     const { cb } = args(a, b);
     const room = joinedCode ? getRoom(joinedCode) : undefined;
     if (!room) return cb(fail('Not in a room'));
-    const cards = await generateSwipeCards(room.outingType);
+    const cards = await generateSwipeCards(room.decisionTopic || room.outingType);
     cb(ok({ cards }));
   });
 

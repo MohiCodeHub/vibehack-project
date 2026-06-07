@@ -69,19 +69,19 @@ export interface RoundPrompt {
   snark: string;
 }
 
-/** Dinner-flavored fallback prompts (used offline or on any LLM failure). */
+/** Defense-style fallback prompts about each player's own pick (offline or on any LLM failure). */
 const MOCK_ROUND_PROMPTS: RoundPrompt[] = [
   {
-    text: "Name a place that's objectively mediocre but you'll defend with your life.",
-    snark: 'Bold, defending mediocrity on live television. The committee respects the audacity.',
+    text: "Make the case: what's the ONE detail about your pick that ends the debate instantly?",
+    snark: 'Bold opening argument. The committee is pretending to be impressed.',
   },
   {
-    text: 'Pitch somewhere the vibes are terrible but it somehow cures a bad day.',
-    snark: 'Ah yes, emotional-support ambiance. Very scientific, very legally distinct from therapy.',
+    text: 'Your pick has one deeply embarrassing flaw. Confess it — then defend it anyway.',
+    snark: 'Ah, the ol’ admit-and-deflect. Legally distinct from an actual defense.',
   },
   {
-    text: 'You have 10 minutes to make one gloriously questionable group decision. Where are we going?',
-    snark: 'Ten minutes. A countdown to regret. I have never been more invested.',
+    text: 'Hype your pick like your reputation depends on it. One unhinged sentence.',
+    snark: 'Ten out of ten for enthusiasm, zero for restraint. I love it.',
   },
 ];
 
@@ -95,33 +95,33 @@ function toRoundPrompt(x: unknown): RoundPrompt | null {
   return { text: text.slice(0, 150), snark: snark.slice(0, 200) };
 }
 
-/** The chaotic game-show-host system prompt, parameterized by the outing category. */
+/** The chaotic game-show-host system prompt, parameterized by the decision category. */
 function roundPromptInstruction(category: string): string {
   return `# ROLE AND CONTEXT
 You are the chaotic, high-energy, and slightly passive-aggressive game show host of "Where To?", a Jackbox-style party game.
 The goal of this game is to cure "Group Indecision Syndrome" by forcing friends into hilarious, high-stakes debates over everyday choices.
-The players have provided a general category they are trying to decide on (e.g., "Dinner Tonight", "What Movie to Watch", "Weekend Activity").
+The group is deciding on: "${category}". Each player has ALREADY chosen a specific option (a Place, Thing, or Activity) that they are championing for the group.
 
 # YOUR TASK
-Generate a list of 3 quirky, hyper-specific game prompts based on the provided CATEGORY.
-These prompts will be given to the players. The players will input their answers, and those answers will later battle head-to-head in a voting bracket until one ultimate winner is chosen for the group to actually do.
+Generate exactly 3 quirky, hyper-specific game prompts. Every player answers the SAME 3 prompts, but about THEIR OWN pick. Their answers then battle head-to-head in voting until one winner is chosen for the group to actually do.
 
 # RULES FOR GENERATING PROMPTS:
-1. BAN INDECISION: Never ask open-ended, boring questions like "What do you want to eat?" or "What genre do you like?" Instead, force them into a corner with hypotheticals, superlatives, or weird scenarios.
-2. PROVOKE A DEFENSE: The prompt should make the player want to aggressively defend their answer to their friends.
-3. MUST YIELD AN ACTIONABLE NOUN: The prompt must lead the player to submit a specific Place, Thing, or Activity that can actually be done/consumed by the group.
-4. KEEP IT SNAPPY: Prompts must be under 150 characters. Punchy, sassy, and readable on a TV screen.
+1. ABOUT THEIR OWN PICK: Each prompt must make the player defend, hype, roast, or confess something about the specific option THEY are championing. Refer to it generically as "your pick" — NEVER name a specific option yourself (every player picked something different).
+2. BAN INDECISION: No boring, open-ended questions. Corner them with hypotheticals, superlatives, confessions, or weird scenarios.
+3. PROVOKE A DEFENSE: The prompt should make the player want to aggressively defend their pick to their friends.
+4. KEEP IT SNAPPY: Under 150 characters. Punchy, sassy, readable on a TV screen.
 
-# EXAMPLES OF GREAT PROMPTS:
-If CATEGORY is "Dinner Tonight": "What's a restaurant that is objectively mediocre but you will defend with your life?" / "You have 10 minutes to ruin your diet. Where are we going?"
-If CATEGORY is "What Movie to Watch": "Name a movie that is completely brain-dead but impossible to look away from." / "Pitch a movie that feels like a warm hug after a terrible week."
-If CATEGORY is "Weekend Activity": "What is an activity that costs less than $20 but makes us feel dangerously alive?"
+# EXAMPLES (note how they reference "your pick" generically so they work for everyone):
+- "Make the case: what's the ONE detail about your pick that ends the debate instantly?"
+- "Your pick has one deeply embarrassing flaw. Confess it — then defend it anyway."
+- "Hype your pick like your reputation depends on it. One unhinged sentence. Go."
+- "Sell your pick to someone who hates fun. What's your opening line?"
 
 # OUTPUT FORMAT
 Return ONLY JSON of the form {"prompts": [{"prompt": "...", "host_snark": "..."}]} with exactly 3 objects.
-Each object has "prompt" (the question shown to the player) and "host_snark" (a brief, 1-sentence snarky comment the host says after the prompt is read).
+Each object has "prompt" (shown to every player) and "host_snark" (a brief, 1-sentence snarky comment the host says after the prompt is read).
 
-INPUT CATEGORY: ${category}`;
+THE GROUP IS DECIDING ON: ${category}`;
 }
 
 /** Generate the 3 shared round prompts for an outing category. Falls back to the mock. */

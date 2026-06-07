@@ -245,7 +245,8 @@ export function lockRestaurant(room: Room, playerId: string, restaurant: Restaur
 export function ensureRoomPrompts(room: Room): Promise<void> {
   if (room.prompts && room.prompts.length >= 3) return Promise.resolve();
   if (room.promptsPromise) return room.promptsPromise;
-  const promise = generateRoundPrompts(room.outingType)
+  const category = room.decisionTopic || room.outingType;
+  const promise = generateRoundPrompts(category)
     .then((p) => {
       room.prompts = p;
     })
