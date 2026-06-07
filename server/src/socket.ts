@@ -156,8 +156,8 @@ export function registerHandlers(io: Server, socket: Socket): void {
 
   socket.on('restaurant:autocomplete', async (payload: { query: string; loc?: LatLng }, cb: (a: Ack) => void) => {
     try {
-      const query = (payload?.query ?? '').trim();
-      if (!query) return cb(ok({ suggestions: [] }));
+      const query = cleanRestaurantName(payload?.query ?? '');
+      if (query.length < 2) return cb(ok({ suggestions: [] }));
       const suggestions = await autocompleteRestaurants(query, payload.loc);
       cb(ok({ suggestions }));
     } catch (e) {

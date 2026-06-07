@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Input } from './ui';
+import { isAutocompleteQueryReady } from './placesAutocompleteLogic.ts';
 
 export interface PlaceSuggestion {
   placeId: string;
@@ -25,6 +26,7 @@ export function PlacesAutocomplete({ onSelect, disabled, placeholder = 'Search r
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const requestSeqRef = useRef(0);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -36,6 +38,13 @@ export function PlacesAutocomplete({ onSelect, disabled, placeholder = 'Search r
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      requestSeqRef.current += 1;
+    };
+  }, []);
+
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value;
     setQuery(val);
@@ -43,15 +52,21 @@ export function PlacesAutocomplete({ onSelect, disabled, placeholder = 'Search r
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
-    if (!val.trim()) {
+    requestSeqRef.current += 1;
+    const requestSeq = requestSeqRef.current;
+    const trimmed = val.trim();
+
+    if (!isAutocompleteQueryReady(trimmed)) {
       setSuggestions([]);
       setOpen(false);
+      setLoading(false);
       return;
     }
 
+    setLoading(true);
     debounceRef.current = setTimeout(async () => {
-      setLoading(true);
-      const ack = await emit('restaurant:autocomplete', { query: val.trim(), loc });
+      const ack = await emit('restaurant:autocomplete', { query: trimmed, loc });
+      if (requestSeq !== requestSeqRef.current) return;
       setLoading(false);
       if (ack.ok && ack.data?.suggestions?.length) {
         setSuggestions(ack.data.suggestions);
