@@ -6,6 +6,9 @@ import { generateCandidates, type Candidate } from './aiService.ts';
 
 const USE_MOCKS = process.env.USE_MOCKS === 'true' || !process.env.PLACES_API_KEY;
 const DEFAULT_CITY = process.env.DEFAULT_CITY || 'San Francisco';
+const PLACES_TIMEOUT_MS = Number(process.env.PLACES_TIMEOUT_MS ?? 5000);
+const AUTOCOMPLETE_FIELD_MASK =
+  'suggestions.placePrediction.placeId,suggestions.placePrediction.structuredFormat.mainText.text,suggestions.placePrediction.structuredFormat.secondaryText.text,suggestions.placePrediction.text.text';
 
 export interface LatLng {
   lat: number;
@@ -39,11 +42,7 @@ export async function resolveRestaurant(name: string, loc?: LatLng): Promise<Res
     // Try to fuzzy-match the typed name against the sample set for a nicer demo.
     const hit = SAMPLE_RESTAURANTS.find((r) => r.name.toLowerCase().includes(name.trim().toLowerCase()));
     if (hit) return withMapUrl(hit);
-    return withMapUrl({
-      id: `ft_${slug(name)}`,
-      name: name.trim(),
-      source: 'freetext',
-    });
+    return withMapUrl(freeTextRestaurant(name));
   }
   return resolveRestaurantLive(name, loc);
 }
@@ -61,10 +60,8 @@ export async function candidatesForProfile(choices: SwipeChoice[], topic: string
   const llm = await generateCandidates(topic, DEFAULT_CITY, describeProfile(choices), 4);
   if (llm && llm.length) return llm.map((c) => candidateToRestaurant(c));
 
-  // Last resort: score the built-in samples (dinner-flavoured, only hit if the LLM is down).
-  const scored = SAMPLE_RESTAURANTS.map((r) => ({ r, score: scoreAgainstProfile(r, choices) }));
-  scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, 4).map((s) => withMapUrl(s.r));
+  // Last resort (only if the LLM is down): the scored built-in samples.
+  return mockCandidatesForProfile(choices);
 }
 
 /**
@@ -152,7 +149,36 @@ function scoreAgainstProfile(r: Restaurant, choices: SwipeChoice[]): number {
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
+function freeTextRestaurant(name: string): Restaurant {
+  return {
+    id: `ft_${slug(name)}`,
+    name: name.trim(),
+    source: 'freetext',
+  };
+}
+
+function mockCandidatesForProfile(choices: SwipeChoice[]): Restaurant[] {
+  const scored = SAMPLE_RESTAURANTS.map((r) => ({ r, score: scoreAgainstProfile(r, choices) }));
+  scored.sort((a, b) => b.score - a.score);
+  // Add a little spread so it isn't always the same top items for identical swipes.
+  return scored.slice(0, 4).map((s) => withMapUrl(s.r));
+}
+
 // ---- Live implementations (Google Places). Only used when not mocking. ----
+
+async function placesFetchJson<T>(url: string, init: RequestInit): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), Number.isFinite(PLACES_TIMEOUT_MS) ? PLACES_TIMEOUT_MS : 5000);
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    if (!res.ok) {
+      throw new Error(`Google Places request failed with status ${res.status}`);
+    }
+    return (await res.json()) as T;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 async function resolveRestaurantLive(name: string, loc?: LatLng): Promise<Restaurant> {
   const key = process.env.PLACES_API_KEY!;
@@ -163,7 +189,7 @@ async function resolveRestaurantLive(name: string, loc?: LatLng): Promise<Restau
       : {}),
     maxResultCount: 1,
   };
-  const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+  const json = await placesFetchJson<any>('https://places.googleapis.com/v1/places:searchText', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -172,11 +198,10 @@ async function resolveRestaurantLive(name: string, loc?: LatLng): Promise<Restau
         'places.id,places.displayName,places.formattedAddress,places.rating,places.priceLevel,places.googleMapsUri,places.primaryTypeDisplayName',
     },
     body: JSON.stringify(body),
-  });
-  const json = (await res.json()) as any;
+  }).catch(() => ({ places: [] }));
   const p = json.places?.[0];
   if (!p) {
-    return { id: `ft_${slug(name)}`, name: name.trim(), source: 'freetext' };
+    return freeTextRestaurant(name);
   }
   return placeToRestaurant(p);
 }
@@ -202,7 +227,7 @@ async function candidatesForProfileLive(choices: SwipeChoice[], loc?: LatLng): P
       : {}),
     maxResultCount: 4,
   };
-  const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+  const json = await placesFetchJson<any>('https://places.googleapis.com/v1/places:searchText', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -211,9 +236,9 @@ async function candidatesForProfileLive(choices: SwipeChoice[], loc?: LatLng): P
         'places.id,places.displayName,places.formattedAddress,places.rating,places.priceLevel,places.googleMapsUri,places.primaryTypeDisplayName',
     },
     body: JSON.stringify(body),
-  });
-  const json = (await res.json()) as any;
-  return (json.places ?? []).slice(0, 4).map(placeToRestaurant);
+  }).catch(() => ({ places: [] }));
+  const places = (json.places ?? []).slice(0, 4).map(placeToRestaurant);
+  return places.length > 0 ? places : mockCandidatesForProfile(choices);
 }
 
 function placeToRestaurant(p: any): Restaurant {
@@ -233,6 +258,75 @@ function placeToRestaurant(p: any): Restaurant {
     mapUrl: p.googleMapsUri,
     source: 'places',
   };
+}
+
+export interface PlaceSuggestion {
+  placeId: string;
+  name: string;
+  description: string;
+}
+
+export async function autocompleteRestaurants(query: string, loc?: LatLng): Promise<PlaceSuggestion[]> {
+  if (USE_MOCKS) {
+    const matches = SAMPLE_RESTAURANTS
+      .filter((r) => r.name.toLowerCase().includes(query.toLowerCase()))
+      .map((r) => ({ placeId: r.id, name: r.name, description: r.address ?? DEFAULT_CITY }));
+    if (matches.length > 0) return matches;
+    // No sample restaurants matched — return a free-text fallback so the user
+    // can always confirm whatever they typed (mirrors resolveRestaurant() behaviour).
+    return [{ placeId: `ft_${slug(query)}`, name: query.trim(), description: 'Free text entry' }];
+  }
+  return autocompleteRestaurantsLive(query, loc);
+}
+
+async function autocompleteRestaurantsLive(query: string, loc?: LatLng): Promise<PlaceSuggestion[]> {
+  const key = process.env.PLACES_API_KEY!;
+  const body: Record<string, unknown> = { input: loc ? query : `${query} ${DEFAULT_CITY}` };
+  if (loc) {
+    body.locationBias = { circle: { center: { latitude: loc.lat, longitude: loc.lng }, radius: 8000 } };
+  }
+  const json = await placesFetchJson<any>('https://places.googleapis.com/v1/places:autocomplete', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': key,
+      'X-Goog-FieldMask': AUTOCOMPLETE_FIELD_MASK,
+    },
+    body: JSON.stringify(body),
+  }).catch(() => ({ suggestions: [] }));
+  return (json.suggestions ?? [])
+    .filter((s: any) => s.placePrediction)
+    .map((s: any) => ({
+      placeId: s.placePrediction.placeId,
+      name: s.placePrediction.structuredFormat?.mainText?.text ?? s.placePrediction.text?.text ?? '',
+      description: s.placePrediction.structuredFormat?.secondaryText?.text ?? '',
+    }));
+}
+
+export async function resolveRestaurantById(placeId: string): Promise<Restaurant> {
+  if (USE_MOCKS) {
+    const hit = SAMPLE_RESTAURANTS.find((r) => r.id === placeId);
+    if (hit) return withMapUrl(hit);
+    // Reconstruct a human-readable name from free-text placeIds (ft_<slug>).
+    const freetextName = placeId.startsWith('ft_')
+      ? placeId.slice(3).replace(/-+/g, ' ')
+      : placeId;
+    return withMapUrl({ id: placeId, name: freetextName, source: 'freetext' });
+  }
+  return resolveRestaurantByIdLive(placeId);
+}
+
+async function resolveRestaurantByIdLive(placeId: string): Promise<Restaurant> {
+  const key = process.env.PLACES_API_KEY!;
+  const p = await placesFetchJson<any>(`https://places.googleapis.com/v1/places/${placeId}`, {
+    headers: {
+      'X-Goog-Api-Key': key,
+      'X-Goog-FieldMask':
+        'id,displayName,formattedAddress,rating,priceLevel,googleMapsUri,primaryTypeDisplayName',
+    },
+  });
+  if (!p.id) throw new Error('Place not found');
+  return placeToRestaurant(p);
 }
 
 /** A random sample restaurant — used to give test bots a pick. Works offline. */
