@@ -67,13 +67,31 @@ export function Lobby() {
           htmlFor="lobby-topic"
           hint="Optional — everyone in the room will see this"
         >
+          <select
+            className="ui-input lobby-topic-preset"
+            defaultValue=""
+            onChange={(e) => {
+              if (e.target.value) setTopicDraft(e.target.value);
+            }}
+          >
+            <option value="" disabled>— pick a template —</option>
+            <option value="Restaurant / dinner">Restaurant / dinner</option>
+            <option value="Bar or drinks">Bar or drinks</option>
+            <option value="Movie to watch">Movie to watch</option>
+            <option value="TV show to binge">TV show to binge</option>
+            <option value="Weekend activity">Weekend activity</option>
+            <option value="Date night">Date night</option>
+            <option value="Holiday destination">Holiday destination</option>
+            <option value="Something else">Something else</option>
+          </select>
           <Input
             id="lobby-topic"
             value={topicDraft}
             maxLength={100}
-            placeholder="Restaurant for dinner, what movie to watch, weekend activity, etc."
+            placeholder="Or type your own…"
             onChange={(e) => setTopicDraft(e.target.value)}
             onBlur={() => void saveTopic()}
+            style={{ marginTop: 'var(--ds-space-2)' }}
           />
         </FormField>
       )}
