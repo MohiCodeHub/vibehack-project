@@ -697,8 +697,8 @@ body {
 }
 
 .lb-row__rank {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.75rem;
+  height: 2.75rem;
   border-radius: var(--ds-radius-full);
   display: flex;
   align-items: center;
@@ -707,6 +707,14 @@ body {
   font-size: var(--ds-text-2xl);
   color: white;
   flex-shrink: 0;
+}
+
+/* Comic podium medal — same slot width as the number badge so names stay aligned. */
+.lb-rank-medal {
+  width: 2.75rem;
+  height: auto;
+  flex-shrink: 0;
+  filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.3));
 }
 
 .lb-row__main {

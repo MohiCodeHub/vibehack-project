@@ -1,8 +1,7 @@
 import type { PlayerView } from '@shared/types.ts';
 import { motion as Motion } from 'motion/react';
 import { playerColor } from './ui/utils.ts';
-
-const MEDALS = ['🥇', '🥈', '🥉'];
+import { RankMedal } from './illustrations/RankMedal.tsx';
 
 export function LeaderboardList({
   players,
@@ -26,9 +25,13 @@ export function LeaderboardList({
           transition={{ delay: i * 0.1 }}
           className={`lb-row${p.id === youId ? ' lb-row--you' : ''}${i === 0 ? ' lb-row--first' : ''}`}
         >
-          <span className="lb-row__rank" style={{ backgroundColor: playerColor(i) }}>
-            {MEDALS[i] ?? i + 1}
-          </span>
+          {i < 3 ? (
+            <RankMedal rank={i + 1} />
+          ) : (
+            <span className="lb-row__rank" style={{ backgroundColor: playerColor(i) }}>
+              {i + 1}
+            </span>
+          )}
           <div className="lb-row__main">
             <p className="lb-row__name">{p.name}</p>
             {revealPicks && p.restaurantName && (
