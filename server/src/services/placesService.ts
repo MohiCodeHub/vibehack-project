@@ -67,10 +67,20 @@ export async function candidatesForProfile(choices: SwipeChoice[], topic: string
   return scored.slice(0, 4).map((s) => withMapUrl(s.r));
 }
 
-/** Turn a swipe profile into a short preference string from the options the player chose. */
+/**
+ * Turn a swipe profile into a preference string. When the axis + rejected side are present we
+ * send the full trade-off context ("Energy → Relaxing (over Active)"); otherwise just the choice.
+ */
 function describeProfile(choices: SwipeChoice[]): string {
-  const labels = choices.map((c) => c.choice).filter((x): x is string => !!x && x.trim().length > 0);
-  return labels.length ? labels.join(', ') : 'a great all-rounder';
+  const parts = choices
+    .map((c) => {
+      const chosen = c.choice?.trim();
+      if (!chosen) return null;
+      if (c.axis?.trim() && c.rejected?.trim()) return `${c.axis.trim()} → ${chosen} (over ${c.rejected.trim()})`;
+      return chosen;
+    })
+    .filter((x): x is string => !!x);
+  return parts.length ? parts.join('; ') : 'a great all-rounder';
 }
 
 /** Map an LLM candidate (specific place OR general activity) into a Restaurant-shaped option. */

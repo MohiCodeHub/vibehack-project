@@ -18,7 +18,16 @@ export function SwipeDeck({ cards, onDone }: { cards: SwipeCard[]; onDone: (c: S
   function commit(pick: 'left' | 'right') {
     if (leaving || !card) return;
     setLeaving(pick);
-    const next = [...choices, { cardId: card.id, pick, choice: pick === 'left' ? card.left : card.right }];
+    const next = [
+      ...choices,
+      {
+        cardId: card.id,
+        pick,
+        choice: pick === 'left' ? card.left : card.right,
+        axis: card.axis,
+        rejected: pick === 'left' ? card.right : card.left,
+      },
+    ];
     window.setTimeout(() => {
       setChoices(next);
       setDrag(0);

@@ -39,6 +39,10 @@ export interface SwipeChoice {
   pick: 'left' | 'right';
   /** The human-readable option the player chose — used for category-agnostic matching. */
   choice?: string;
+  /** The trade-off axis label (e.g. "Energy"), for richer LLM context. */
+  axis?: string;
+  /** The option the player rejected (the other side). */
+  rejected?: string;
 }
 
 /** One personalized comedic question for a player. */
