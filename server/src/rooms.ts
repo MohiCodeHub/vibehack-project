@@ -24,6 +24,8 @@ interface Player {
   isBot: boolean;
   restaurant?: Restaurant;
   questions: Question[];
+  /** In-flight question generation, so beginAnswering can await a pre-gen already running. */
+  questionsPromise?: Promise<void>;
   /** questionId -> answer text */
   answers: Record<string, string>;
   /** per round: ranked list of authorIds this player voted for (index 0 = top). */
@@ -221,7 +223,29 @@ export function lockRestaurant(room: Room, playerId: string, restaurant: Restaur
   if (!p) return { error: 'Player not found' };
   if (room.phase !== 'selecting') return { error: 'Not in selection phase' };
   p.restaurant = restaurant;
+  void ensureQuestions(p); // pre-generate questions now, hidden behind the selecting phase (4b)
   return {};
+}
+
+/**
+ * Generate this player's questions once, cached on the player (idempotent). Kicked off at
+ * lock time so the answering phase starts instantly. generateQuestions already falls back to
+ * a mock on any LLM failure, so this never rejects in practice.
+ */
+export function ensureQuestions(p: Player): Promise<void> {
+  if (!p.restaurant) return Promise.resolve();
+  if (p.questions.length > 0) return Promise.resolve();
+  if (p.questionsPromise) return p.questionsPromise;
+  const promise = generateQuestions({ name: p.name, restaurant: p.restaurant })
+    .then((qs) => {
+      p.questions = qs;
+    })
+    .catch((err) => {
+      console.warn('[rooms] ensureQuestions failed:', (err as Error).message);
+      p.questionsPromise = undefined; // let beginAnswering retry
+    });
+  p.questionsPromise = promise;
+  return promise;
 }
 
 /** True if another player has already locked a restaurant with this name (case-insensitive). */
@@ -241,16 +265,10 @@ export function allRestaurantsLocked(room: Room): boolean {
   return players.length >= 2 && players.every((p) => !!p.restaurant);
 }
 
-/** Generate questions for everyone and move to answering. */
+/** Ensure everyone's questions are ready (most were pre-generated at lock time), then advance. */
 export async function beginAnswering(room: Room): Promise<void> {
   if (room.phase !== 'selecting') return;
-  await Promise.all(
-    [...room.players.values()]
-      .filter((p) => p.restaurant)
-      .map(async (p) => {
-        p.questions = await generateQuestions({ name: p.name, restaurant: p.restaurant! });
-      }),
-  );
+  await Promise.all([...room.players.values()].filter((p) => p.restaurant).map((p) => ensureQuestions(p)));
   room.phase = 'answering';
 }
 
@@ -378,6 +396,7 @@ export function resetToLobby(room: Room, byPlayerId: string): { error?: string }
   for (const p of room.players.values()) {
     p.restaurant = undefined;
     p.questions = [];
+    p.questionsPromise = undefined;
     p.answers = {};
     p.votes = {};
     p.score = 0;

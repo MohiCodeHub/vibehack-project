@@ -181,9 +181,16 @@ The Places resolution step can short-circuit duplicates earlier by resolving to 
 
 ---
 
-## 4. AI service hardening (`aiService.ts`)
+## 4. AI service hardening (`aiService.ts`) — ✅ implemented
 
-The biggest hidden risk: a live LLM call hanging or returning malformed JSON during the demo. `USE_MOCKS=true` saves you offline; the live path needs the same belt-and-braces.
+Done: every live call is wrapped with an 8s `AbortController` timeout + try/catch + mock
+fallback (4a); questions are pre-generated at lock time via `ensureQuestions` and cached on
+the player, so answering starts instantly (4b); responses go through `stripFences` →
+`parseJsonLoose` → `firstArray` with strict shape validation (4c). **Provider support added
+per the user's choice:** `LLM_PROVIDER=openai` (default, with JSON mode) or `anthropic`,
+selected by env; prompts now ask for a `{key:[...]}` object for reliable parsing. Verified
+live (OpenAI key → 0 fallbacks across runs), with a bad key (3 clean fallbacks, game still
+completes), and offline (mocks). Original notes kept below for reference.
 
 ### 4a. Wrap every call with timeout + try/catch + fallback to mock
 The mock is not just a dev convenience; it is your runtime fallback. Restructure so the live path is wrapped:
